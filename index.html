@@ -90,6 +90,15 @@
 .livebox .ph{color:var(--text2);font-size:1rem;font-weight:500;max-width:34ch}
 .statusline{display:flex;align-items:center;gap:8px;margin:10px 0 8px;font-size:.85rem;color:var(--text2);flex-wrap:wrap}
 .pill{border:2px solid var(--line);border-radius:999px;padding:2px 10px;font-weight:700;font-size:.78rem;white-space:nowrap}
+.holdbar{height:6px;border-radius:999px;background:var(--surface2);overflow:hidden;margin-top:8px}
+.holdbar i{display:block;height:100%;background:var(--live);width:0;border-radius:999px;transition:width .25s linear}
+.holdbar[hidden]{display:none}
+.rawline{font-size:.8rem;color:var(--text2);margin-top:6px;line-height:1.45;word-break:keep-all}
+.rawline b{font-weight:700;color:var(--text2)}
+.fixrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border:2px solid var(--line);
+  border-radius:10px;padding:8px 10px;margin-bottom:8px;background:var(--surface2)}
+.fixrow .ft{font-size:.86rem;word-break:break-all}
+.fixrow .fh{font-size:.74rem;color:var(--text2);margin-top:2px}
 .pill.wait{border-color:var(--live);color:var(--live)}
 .pill.done{border-color:var(--ok);color:var(--ok)}
 .pulse{width:12px;height:12px;border-radius:50%;background:var(--text2);flex:none}
@@ -213,6 +222,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
             <div class="livebox" id="liveBox" aria-live="polite" aria-atomic="false">
               <span class="ph">마이크 버튼을 누르고 말하면 이 자리에 글자가 나타납니다.</span>
             </div>
+            <div class="holdbar" id="holdBar" hidden aria-hidden="true"><i></i></div>
             <div class="controls">
               <button class="btn primary mic" id="micBtn">🎤 말하기 시작</button>
               <button class="btn" id="saveBtn" disabled>💾 지금 기록하기</button>
@@ -308,6 +318,15 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
         <div class="hours" id="hours"></div>
       </div>
       <div class="card">
+        <h2>인식 교정 분석 <span class="sub">자동 교정과 교사 수정 현황</span></h2>
+        <div class="kpis" id="fixKpis"></div>
+        <div class="tblwrap" style="margin-top:14px"><table id="fixTable">
+          <thead><tr><th>잘못 인식되는 말</th><th>올바른 말</th><th class="num">적용 횟수</th><th>마지막 적용</th><th style="width:22%">비중</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <p class="note" id="fixNote"></p>
+      </div>
+      <div class="card">
         <h2>날짜별 기록</h2>
         <div class="tblwrap"><table id="dayTable">
           <thead><tr><th>날짜</th><th class="num">횟수</th><th class="num">총 글자</th><th style="width:34%">비중</th></tr></thead>
@@ -358,10 +377,37 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     </div>
     <p class="note">켜두면 한 문장이 끝나도 글자가 화면에 남아 있고, 다음 발화가 확인될 때 앞 발화가 기록으로 넘어갑니다. 끄면 말한 내용이 화면에 계속 이어 쌓이며, 기록하기 버튼을 눌러야 한 건으로 저장됩니다.</p>
 
+    <label class="f" for="holdSel">화면 유지 시간</label>
+    <select id="holdSel">
+      <option value="10">10초</option>
+      <option value="20">20초</option>
+      <option value="30">30초 (권장)</option>
+      <option value="45">45초</option>
+      <option value="60">60초</option>
+      <option value="0">제한 없음 — 다음 발화까지 계속</option>
+    </select>
+    <p class="note">다음 발화가 없어도 이 시간이 지나면 화면의 발화가 자동으로 기록됩니다. 글자는 화면에 그대로 남고 배지만 기록됨으로 바뀝니다. 교사가 확인을 깜빡해도 기록이 누락되지 않습니다.</p>
+
     <label class="f">화면 꺼짐 방지</label>
     <div class="chiprow">
       <button class="chip" id="wakeChip" aria-pressed="true">녹음 중 화면 켜두기</button>
     </div>
+
+    <hr class="hr">
+    <h2>자주 틀리는 말 교정</h2>
+    <p class="note">특정 낱말이 반복해서 잘못 인식되면 규칙을 등록하십시오. 인식된 문장에서 자동으로 바꿔 줍니다. 바뀌기 전 원문도 함께 보관되어 통계 탭에서 실제 인식률을 분석할 수 있습니다.</p>
+    <div class="grid2" style="margin-top:10px">
+      <div>
+        <label class="f" for="fixFrom">잘못 인식되는 말</label>
+        <input type="text" id="fixFrom" placeholder="예: 국어 시간">
+      </div>
+      <div>
+        <label class="f" for="fixTo">올바른 말</label>
+        <input type="text" id="fixTo" placeholder="예: 국악 시간">
+      </div>
+    </div>
+    <div class="row-end" style="margin-top:10px"><button class="btn primary" id="addFix">규칙 추가</button></div>
+    <div id="fixList" style="margin-top:12px"></div>
 
     <hr class="hr">
     <h2>저장 상태</h2>
@@ -384,8 +430,11 @@ var K_REC="sttlog.records.v1", K_SET="sttlog.settings.v1";
 
 var S = Object.assign({
   recorder:"", speakers:["학생 1"], speaker:"학생 1",
-  livePt:44, recPt:20, theme:"", lang:"ko-KR", autoSave:true, wakeLock:true
+  livePt:44, recPt:20, theme:"", lang:"ko-KR", autoSave:true, wakeLock:true,
+  holdSec:30, fixes:[]
 }, store.get(K_SET,{}));
+if(!Array.isArray(S.fixes)) S.fixes=[];
+if(typeof S.holdSec!=="number") S.holdSec=30;
 if(!S.theme){ S.theme = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark":"light"; }
 var RECS = store.get(K_REC,[]);
 var storageOK = true;
@@ -463,13 +512,63 @@ function renderSpeakers(){
 function renderFilters(){ renderSpeakers(); }
 
 /* ========== 기록 ========== */
-function addRecord(text, source, when, speaker, recorder){
+function addRecord(text, source, when, speaker, recorder, raw, fixed){
   text=(text||"").trim(); if(!text) return false;
   var d=when||new Date();
-  RECS.unshift({ id:uid(), ts:d.toISOString(), date:dstr(d), time:tstr(d),
+  var r={ id:uid(), ts:d.toISOString(), date:dstr(d), time:tstr(d),
     speaker:speaker||S.speaker||"미지정", recorder:recorder||S.recorder||"미지정",
-    text:text, source:source||"voice", chars:text.replace(/\s/g,"").length, edited:false });
+    text:text, source:source||"voice", chars:text.replace(/\s/g,"").length, edited:false };
+  if(raw && raw!==text){ r.raw=raw; r.fixed=fixed||0; }
+  RECS.unshift(r);
   saveRecs(); renderAll(); return true;
+}
+
+/* ========== 교정 사전 ========== */
+function applyFixes(text){
+  var out=text, total=0, used=[];
+  for(var i=0;i<S.fixes.length;i++){
+    var f=S.fixes[i];
+    if(!f || !f.from || f.from===f.to) continue;
+    var parts=out.split(f.from);
+    if(parts.length>1){
+      var c=parts.length-1;
+      out=parts.join(f.to);
+      total+=c; used.push({id:f.id, n:c});
+    }
+  }
+  return { text:out, count:total, used:used };
+}
+function bumpFixStats(used){
+  if(!used || !used.length) return;
+  var now=new Date().toISOString();
+  used.forEach(function(u){
+    for(var i=0;i<S.fixes.length;i++) if(S.fixes[i].id===u.id){
+      S.fixes[i].hits=(S.fixes[i].hits||0)+u.n;
+      S.fixes[i].lastAt=now;
+    }
+  });
+  saveSet();
+}
+function renderFixList(){
+  var box=$("#fixList"); if(!box) return;
+  box.innerHTML="";
+  if(!S.fixes.length){
+    box.innerHTML='<div class="empty" style="padding:18px">등록된 규칙이 없습니다.</div>'; return;
+  }
+  S.fixes.forEach(function(f){
+    var row=document.createElement("div"); row.className="fixrow";
+    var left=document.createElement("div");
+    left.innerHTML='<div class="ft"></div><div class="fh">적용 '+(f.hits||0)+'회'+
+      (f.lastAt?' · 마지막 '+f.lastAt.slice(0,10):'')+'</div>';
+    left.querySelector(".ft").textContent=f.from+" → "+f.to;
+    var del=document.createElement("button");
+    del.className="btn sm danger"; del.textContent="✕"; del.setAttribute("aria-label",f.from+" 규칙 삭제");
+    del.onclick=function(){
+      S.fixes=S.fixes.filter(function(x){return x.id!==f.id;});
+      saveSet(); renderFixList(); renderStats(); toast("규칙을 삭제했습니다.");
+    };
+    row.appendChild(left); row.appendChild(del); box.appendChild(row);
+  });
 }
 function recCard(r, full){
   var el=document.createElement("div"); el.className="rec";
@@ -480,15 +579,18 @@ function recCard(r, full){
       '<span class="tag">기록 '+esc(r.recorder)+'</span>'+
       '<span class="tag">'+(r.source==="manual"?"직접 입력":"음성")+'</span>'+
       '<span class="tag">'+r.chars+'자</span>'+
-      (r.edited?'<span class="tag">수정됨</span>':'')+
+      (r.fixed?'<span class="tag">자동 교정</span>':'')+
+      (r.edited?'<span class="tag">교사 수정</span>':'')+
     '</div>'+
     '<div class="rec-text"></div>'+
+    (r.raw?'<div class="rawline"><b>인식 원문</b> · <span class="rawtxt"></span></div>':'')+
     (full?'<div class="rec-act">'+
       '<button class="btn sm" data-a="edit">✏️ 수정</button>'+
       '<button class="btn sm" data-a="copy">📋 복사</button>'+
       '<button class="btn sm danger" data-a="del">🗑️ 삭제</button>'+
     '</div>':'');
   el.querySelector(".rec-text").textContent=r.text;
+  if(r.raw) el.querySelector(".rawtxt").textContent=r.raw;
   if(full){
     el.querySelector('[data-a="del"]').onclick=function(){
       if(!confirm("이 기록을 삭제할까요?\n\n"+r.text.slice(0,60))) return;
@@ -507,7 +609,10 @@ function recCard(r, full){
       act.appendChild(ok); act.appendChild(no);
       ok.onclick=function(){
         var v=ta.value.trim(); if(!v){toast("내용이 비어 있습니다.");return;}
-        r.text=v; r.chars=v.replace(/\s/g,"").length; r.edited=true; saveRecs(); renderAll(); toast("수정했습니다.");
+        if(v===r.text){ renderAll(); return; }
+        if(!r.raw) r.raw=r.text;          /* 최초 수정 시 인식 원문 보존 */
+        r.text=v; r.chars=v.replace(/\s/g,"").length; r.edited=true;
+        saveRecs(); renderAll(); toast("수정했습니다. 인식 원문은 분석용으로 보관됩니다.");
       };
       no.onclick=function(){ renderAll(); };
     };
@@ -576,6 +681,8 @@ function renderStats(){
     return "<div title='"+i+"시 "+v+"건'><i style='height:"+(v/mh*100)+"%'></i><em>"+i+"</em></div>";
   }).join("");
 
+  renderFixStats(fr);
+
   var dtb=$("#dayTable").querySelector("tbody"); dtb.innerHTML="";
   var md=1; Object.keys(dayAgg).forEach(function(k){ if(dayAgg[k].n>md)md=dayAgg[k].n; });
   Object.keys(dayAgg).sort().reverse().forEach(function(k){
@@ -588,6 +695,43 @@ function renderStats(){
 }
 function kpi(b,s){ return "<div class='kpi'><b>"+b+"</b><span>"+s+"</span></div>"; }
 
+function renderFixStats(fr){
+  var voice=fr.filter(function(r){return r.source!=="manual";});
+  var n=voice.length;
+  var autoN=voice.filter(function(r){return r.fixed>0;}).length;
+  var editN=voice.filter(function(r){return r.edited;}).length;
+  var touched=voice.filter(function(r){return r.fixed>0 || r.edited;}).length;
+  var pct=function(a){ return n?Math.round(a/n*1000)/10:0; };
+
+  $("#fixKpis").innerHTML=
+    kpi(n+"건","음성 인식 발화 수")+
+    kpi(autoN+"건 ("+pct(autoN)+"%)","자동 교정이 적용된 발화")+
+    kpi(editN+"건 ("+pct(editN)+"%)","교사가 손으로 고친 발화")+
+    kpi(pct(touched)+"%","손질이 필요했던 발화 비율");
+
+  var tb=$("#fixTable").querySelector("tbody"); tb.innerHTML="";
+  var maxH=1;
+  S.fixes.forEach(function(f){ if((f.hits||0)>maxH) maxH=f.hits; });
+  var sorted=S.fixes.slice().sort(function(a,b){return (b.hits||0)-(a.hits||0);});
+  sorted.forEach(function(f){
+    var tr=document.createElement("tr");
+    tr.innerHTML="<td></td><td></td><td class='num'>"+(f.hits||0)+
+      "</td><td>"+(f.lastAt?esc(f.lastAt.slice(0,10)):"—")+
+      "</td><td><div class='bar' style='width:"+Math.round((f.hits||0)/maxH*100)+"%'></div></td>";
+    tr.children[0].textContent=f.from;
+    tr.children[1].textContent=f.to;
+    tb.appendChild(tr);
+  });
+  if(!S.fixes.length){
+    tb.innerHTML="<tr><td colspan='5' class='empty'>등록된 교정 규칙이 없습니다. 설정에서 자주 틀리는 말을 추가하세요.</td></tr>";
+  }
+
+  var unused=S.fixes.filter(function(f){return !(f.hits>0);}).length;
+  var note="손질이 필요했던 발화 비율은 이 앱이 관찰할 수 있는 범위의 오인식 지표입니다. 교사가 고치지 않고 넘어간 오인식은 여기에 잡히지 않으므로 실제 오인식률의 하한으로 읽으십시오.";
+  if(unused) note+=" 한 번도 적용되지 않은 규칙이 "+unused+"개 있습니다. 표현이 실제 인식 결과와 다를 수 있으니 기록의 인식 원문을 보고 다듬으십시오.";
+  $("#fixNote").textContent=note;
+}
+
 function renderStore(){
   var bytes=0; try{bytes=JSON.stringify(RECS).length;}catch(e){}
   $("#storeInfo").textContent="기록 "+RECS.length+"건 · 약 "+(bytes/1024).toFixed(1)+"KB"+
@@ -598,11 +742,12 @@ function renderAll(){ renderSpeakers(); renderLists(); renderStats(); renderStor
 
 /* ========== 내보내기 ========== */
 function toCSV(rows){
-  var head=["번호","날짜","시각","말하는 사람","기록하는 사람","입력 방식","글자 수","내용","수정 여부"];
+  var head=["번호","날짜","시각","말하는 사람","기록하는 사람","입력 방식","글자 수","내용","인식 원문","자동 교정 횟수","교사 수정"];
   function q(v){ return '"'+String(v==null?"":v).replace(/"/g,'""')+'"'; }
   var lines=[head.map(q).join(",")];
   rows.forEach(function(r,i){
-    lines.push([i+1,r.date,r.time,r.speaker,r.recorder,(r.source==="manual"?"직접 입력":"음성"),r.chars,r.text,(r.edited?"수정됨":"")].map(q).join(","));
+    lines.push([i+1,r.date,r.time,r.speaker,r.recorder,(r.source==="manual"?"직접 입력":"음성"),r.chars,r.text,
+                (r.raw||""),(r.fixed||0),(r.edited?"수정됨":"")].map(q).join(","));
   });
   return lines.join("\r\n");
 }
@@ -644,28 +789,62 @@ function fallbackCopy(t){
 
 /* ========== 음성 인식 ========== */
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-var rec=null, listening=false, wantListen=false, finalBuf="", interimBuf="", wl=null, restartAt=0;
+var rec=null, listening=false, wantListen=false, finalBuf="", interimBuf="", rawBuf="", wl=null, restartAt=0;
 /* pending: 화면에 유지 중인 직전 발화. 다음 발화가 확정되면 기록으로 넘어간다. */
 var pending=null;
 
-function holdPending(text){
-  pending={ text:text, when:new Date(),
+var holdT=null, holdEnd=0, holdSpan=0;
+
+function holdPending(text, raw, fixed){
+  pending={ text:text, raw:raw||"", fixed:fixed||0, when:new Date(),
             speaker:S.speaker||"미지정", recorder:S.recorder||"미지정", committed:false };
+  startHoldTimer();
 }
 function commitPending(){
   if(!pending || pending.committed) return false;
-  var ok=addRecord(pending.text,"voice",pending.when,pending.speaker,pending.recorder);
-  if(ok) pending.committed=true;
+  var ok=addRecord(pending.text,"voice",pending.when,pending.speaker,pending.recorder,
+                   pending.raw,pending.fixed);
+  if(ok){ pending.committed=true; stopHoldTimer(); }
   return ok;
 }
+function startHoldTimer(){
+  stopHoldTimer();
+  holdSpan=(+S.holdSec||0)*1000;
+  if(!holdSpan){ renderHoldPill(); renderHoldBar(); return; }
+  holdEnd=Date.now()+holdSpan;
+  holdT=setInterval(function(){
+    if(!pending || pending.committed){ stopHoldTimer(); return; }
+    if(Date.now()>=holdEnd){
+      stopHoldTimer();
+      if(commitPending()){ renderLive(); toast("유지 시간이 지나 자동으로 기록했습니다."); }
+    } else { renderHoldPill(); renderHoldBar(); }
+  },250);
+  renderHoldBar();
+}
+function stopHoldTimer(){
+  if(holdT){ clearInterval(holdT); holdT=null; }
+  holdEnd=0; renderHoldPill(); renderHoldBar();
+}
+function holdLeft(){
+  if(!holdEnd) return 0;
+  return Math.max(0, holdEnd-Date.now());
+}
+function renderHoldBar(){
+  var b=$("#holdBar"); if(!b) return;
+  var live = pending && !pending.committed && holdSpan && holdEnd;
+  b.hidden=!live;
+  if(live) b.querySelector("i").style.width=(holdLeft()/holdSpan*100)+"%";
+}
 function renderHoldPill(){
-  var p=$("#holdPill");
+  var p=$("#holdPill"); if(!p) return;
   if(!pending){ p.hidden=true; return; }
   p.hidden=false;
   if(pending.committed){
     p.className="pill done"; p.textContent="기록됨 · "+pending.speaker;
   } else {
-    p.className="pill wait"; p.textContent="기록 대기 · "+pending.speaker;
+    p.className="pill wait";
+    var left=holdEnd?(" · "+Math.ceil(holdLeft()/1000)+"초"):"";
+    p.textContent="기록 대기 · "+pending.speaker+left;
   }
 }
 
@@ -711,12 +890,16 @@ function buildRec(){
       if(res.isFinal){
         var t=txt.trim();
         if(t){
+          var fx=applyFixes(t); bumpFixStats(fx.used);
           if(S.autoSave){
-            commitPending();   /* 직전 발화를 기록으로 넘긴다 */
-            holdPending(t);    /* 새 발화를 화면에 유지한다 */
-            finalBuf="";
+            commitPending();                            /* 직전 발화를 기록으로 넘긴다 */
+            holdPending(fx.text, fx.count?t:"", fx.count); /* 새 발화를 화면에 유지한다 */
+            finalBuf=""; rawBuf="";
           }
-          else { finalBuf=(finalBuf?finalBuf+" ":"")+t; }
+          else {
+            finalBuf=(finalBuf?finalBuf+" ":"")+fx.text;
+            rawBuf=(rawBuf?rawBuf+" ":"")+t;
+          }
         }
       } else itm+=txt;
     }
@@ -787,13 +970,17 @@ function bind(){
   $("#micBtn").onclick=toggleMic;
   $("#clearBtn").onclick=function(){
     var lost = pending && !pending.committed;
-    pending=null; finalBuf=""; interimBuf=""; renderLive();
+    stopHoldTimer(); pending=null; finalBuf=""; interimBuf=""; rawBuf=""; renderLive();
     toast(lost?"기록하지 않고 지웠습니다.":"화면을 비웠습니다.");
   };
   $("#saveBtn").onclick=function(){
     var did=commitPending();
     var t=(finalBuf+" "+interimBuf).trim();
-    if(t){ addRecord(t,"voice"); finalBuf=""; interimBuf=""; did=true; }
+    if(t){
+      var fx=applyFixes(t); bumpFixStats(fx.used);
+      addRecord(fx.text,"voice",null,null,null, fx.count?(rawBuf||t):"", fx.count);
+      finalBuf=""; interimBuf=""; rawBuf=""; did=true;
+    }
     renderLive();
     toast(did?"기록했습니다.":"기록할 내용이 없습니다.");
   };
@@ -817,6 +1004,22 @@ function bind(){
   };
   $("#themeSel").onchange=function(){ S.theme=this.value; applyTheme(); saveSet(); };
   $("#langSel").onchange=function(){ S.lang=this.value; saveSet(); if(rec)rec.lang=S.lang; };
+  $("#holdSel").onchange=function(){
+    S.holdSec=+this.value; saveSet();
+    if(pending && !pending.committed) startHoldTimer(); else stopHoldTimer();
+  };
+  $("#addFix").onclick=function(){
+    var a=$("#fixFrom"), b=$("#fixTo");
+    var from=a.value.trim(), to=b.value.trim();
+    if(!from){ toast("잘못 인식되는 말을 입력하세요."); a.focus(); return; }
+    if(from===to){ toast("두 값이 같습니다."); return; }
+    if(S.fixes.some(function(f){return f.from===from;})){ toast("이미 등록된 말입니다."); return; }
+    S.fixes.push({id:uid(), from:from, to:to, hits:0, lastAt:""});
+    a.value=""; b.value=""; a.focus();
+    saveSet(); renderFixList(); renderStats(); toast("규칙을 추가했습니다.");
+  };
+  $("#fixTo").onkeydown=function(e){ if(e.key==="Enter"){e.preventDefault();$("#addFix").click();} };
+  $("#fixFrom").onkeydown=function(e){ if(e.key==="Enter"){e.preventDefault();$("#fixTo").focus();} };
   $("#recorderName").oninput=function(){ S.recorder=this.value.trim(); saveSet();
     $("#recorderTag").textContent=S.recorder?("기록자 "+S.recorder):"기록자 미설정"; };
   $("#addSpeaker").onclick=function(){
@@ -844,7 +1047,8 @@ function bind(){
     if(b.dataset.exp==="csv") download("발화기록_"+stamp+".csv","﻿"+toCSV(rows),"text/csv");
     if(b.dataset.exp==="txt") download("발화기록_"+stamp+".txt",toTXT(rows),"text/plain");
     if(b.dataset.exp==="json") download("발화기록_"+stamp+".json",
-      JSON.stringify({app:"발화 기록 노트",version:1,exportedAt:new Date().toISOString(),settings:{speakers:S.speakers},records:rows},null,2),"application/json");
+      JSON.stringify({app:"발화 기록 노트",version:2,exportedAt:new Date().toISOString(),
+        settings:{speakers:S.speakers, fixes:S.fixes, holdSec:S.holdSec}, records:rows},null,2),"application/json");
   };});
   $$("[data-copy]").forEach(function(b){ b.onclick=function(){
     var rows=filtered(); if(!rows.length){toast("복사할 기록이 없습니다.");return;}
@@ -865,14 +1069,21 @@ function bind(){
           if(r.id&&have[r.id]) return;
           RECS.push({id:r.id||uid(),ts:r.ts||new Date().toISOString(),date:r.date||"",time:r.time||"",
             speaker:r.speaker||"미지정",recorder:r.recorder||"미지정",text:String(r.text),
-            source:r.source||"voice",chars:r.chars||String(r.text).replace(/\s/g,"").length,edited:!!r.edited});
+            source:r.source||"voice",chars:r.chars||String(r.text).replace(/\s/g,"").length,edited:!!r.edited,
+            raw:r.raw||"",fixed:r.fixed||0});
           n++;
         });
         RECS.sort(function(a,b){return (b.ts||"").localeCompare(a.ts||"");});
         if(o.settings&&Array.isArray(o.settings.speakers)){
           o.settings.speakers.forEach(function(s){ if(S.speakers.indexOf(s)<0)S.speakers.push(s); });
-          saveSet();
         }
+        if(o.settings&&Array.isArray(o.settings.fixes)){
+          o.settings.fixes.forEach(function(f){
+            if(f&&f.from&&!S.fixes.some(function(x){return x.from===f.from;}))
+              S.fixes.push({id:f.id||uid(),from:f.from,to:f.to||"",hits:f.hits||0,lastAt:f.lastAt||""});
+          });
+        }
+        saveSet(); renderFixList();
         saveRecs(); renderAll(); toast(n+"건을 불러왔습니다.");
       }catch(e){ toast("JSON 형식을 읽을 수 없습니다."); }
     };
@@ -897,6 +1108,8 @@ function init(){
   $("#langSel").value=S.lang;
   $("#autoChip").setAttribute("aria-pressed",S.autoSave?"true":"false");
   $("#wakeChip").setAttribute("aria-pressed",S.wakeLock?"true":"false");
+  $("#holdSel").value=String(S.holdSec);
+  renderFixList();
   if(!SR){
     banner("이 브라우저는 음성 인식(Web Speech API)을 지원하지 않습니다. 안드로이드·PC는 Chrome, 아이패드·아이폰은 Safari 최신판을 권장합니다. 그동안에는 아래 직접 입력 기능을 사용하세요.");
     $("#micBtn").disabled=true;
