@@ -82,11 +82,16 @@
   min-height:40vh;max-height:58vh;overflow-y:auto;padding:18px;
   font-size:var(--live-px);line-height:1.45;font-weight:600;word-break:keep-all;overflow-wrap:anywhere}
 .livebox.on{border-color:var(--live)}
-.livebox .final{color:var(--text)}
-.livebox .interim{color:var(--interim)}
+.livebox .final{color:var(--text);display:block}
+.livebox .final.done{opacity:.62}
+.livebox .interim{color:var(--interim);display:block;margin-top:.25em}
+.livebox .sep{display:block;height:2px;background:var(--line);margin:.35em 0;border-radius:2px}
 .livebox.idle{display:flex;align-items:center;justify-content:center;text-align:center;font-size:1rem;line-height:1.6}
 .livebox .ph{color:var(--text2);font-size:1rem;font-weight:500;max-width:34ch}
 .statusline{display:flex;align-items:center;gap:8px;margin:10px 0 8px;font-size:.85rem;color:var(--text2);flex-wrap:wrap}
+.pill{border:2px solid var(--line);border-radius:999px;padding:2px 10px;font-weight:700;font-size:.78rem;white-space:nowrap}
+.pill.wait{border-color:var(--live);color:var(--live)}
+.pill.done{border-color:var(--ok);color:var(--ok)}
 .pulse{width:12px;height:12px;border-radius:50%;background:var(--text2);flex:none}
 .pulse.on{background:var(--live);animation:p 1.1s infinite}
 @keyframes p{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
@@ -203,16 +208,17 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
               <span id="statusText">대기 중</span>
               <span aria-hidden="true">·</span>
               <span id="speakerNow">화자: —</span>
+              <span class="pill" id="holdPill" hidden></span>
             </div>
             <div class="livebox" id="liveBox" aria-live="polite" aria-atomic="false">
               <span class="ph">마이크 버튼을 누르고 말하면 이 자리에 글자가 나타납니다.</span>
             </div>
             <div class="controls">
               <button class="btn primary mic" id="micBtn">🎤 말하기 시작</button>
-              <button class="btn" id="saveBtn" disabled>💾 지금 내용 저장</button>
-              <button class="btn" id="clearBtn">🧹 화면 지우기</button>
+              <button class="btn" id="saveBtn" disabled>💾 지금 기록하기</button>
+              <button class="btn" id="clearBtn" title="화면의 발화를 기록하지 않고 지웁니다">🧹 지우기 (기록 안 함)</button>
             </div>
-            <p class="note" id="micNote">HTTPS 주소 또는 localhost에서만 마이크가 동작합니다. 처음 실행 시 브라우저의 마이크 사용 허용을 눌러 주세요.</p>
+            <p class="note" id="micNote">말한 내용은 화면에 그대로 남아 있다가, 다음 발화가 확인되는 순간 기록으로 넘어가고 새 문장이 자리를 대신합니다. 마이크를 멈추거나 기록하기를 누르면 즉시 기록됩니다. HTTPS 주소에서만 마이크가 동작하며, 처음 실행 시 브라우저의 마이크 사용 허용을 눌러 주세요.</p>
           </div>
 
           <div class="card">
@@ -348,9 +354,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 
     <label class="f">기록 방식</label>
     <div class="chiprow">
-      <button class="chip" id="autoChip" aria-pressed="true">문장마다 자동 저장</button>
+      <button class="chip" id="autoChip" aria-pressed="true">발화 단위로 넘기며 기록</button>
     </div>
-    <p class="note">끄면 말한 내용이 화면에 계속 쌓이고, 저장 버튼을 눌러야 한 건으로 기록됩니다.</p>
+    <p class="note">켜두면 한 문장이 끝나도 글자가 화면에 남아 있고, 다음 발화가 확인될 때 앞 발화가 기록으로 넘어갑니다. 끄면 말한 내용이 화면에 계속 이어 쌓이며, 기록하기 버튼을 눌러야 한 건으로 저장됩니다.</p>
 
     <label class="f">화면 꺼짐 방지</label>
     <div class="chiprow">
@@ -457,11 +463,11 @@ function renderSpeakers(){
 function renderFilters(){ renderSpeakers(); }
 
 /* ========== 기록 ========== */
-function addRecord(text, source){
+function addRecord(text, source, when, speaker, recorder){
   text=(text||"").trim(); if(!text) return false;
-  var d=new Date();
+  var d=when||new Date();
   RECS.unshift({ id:uid(), ts:d.toISOString(), date:dstr(d), time:tstr(d),
-    speaker:S.speaker||"미지정", recorder:S.recorder||"미지정",
+    speaker:speaker||S.speaker||"미지정", recorder:recorder||S.recorder||"미지정",
     text:text, source:source||"voice", chars:text.replace(/\s/g,"").length, edited:false });
   saveRecs(); renderAll(); return true;
 }
@@ -639,20 +645,52 @@ function fallbackCopy(t){
 /* ========== 음성 인식 ========== */
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 var rec=null, listening=false, wantListen=false, finalBuf="", interimBuf="", wl=null, restartAt=0;
+/* pending: 화면에 유지 중인 직전 발화. 다음 발화가 확정되면 기록으로 넘어간다. */
+var pending=null;
+
+function holdPending(text){
+  pending={ text:text, when:new Date(),
+            speaker:S.speaker||"미지정", recorder:S.recorder||"미지정", committed:false };
+}
+function commitPending(){
+  if(!pending || pending.committed) return false;
+  var ok=addRecord(pending.text,"voice",pending.when,pending.speaker,pending.recorder);
+  if(ok) pending.committed=true;
+  return ok;
+}
+function renderHoldPill(){
+  var p=$("#holdPill");
+  if(!pending){ p.hidden=true; return; }
+  p.hidden=false;
+  if(pending.committed){
+    p.className="pill done"; p.textContent="기록됨 · "+pending.speaker;
+  } else {
+    p.className="pill wait"; p.textContent="기록 대기 · "+pending.speaker;
+  }
+}
 
 function renderLive(){
   var b=$("#liveBox");
-  if(!finalBuf && !interimBuf){
+  var held=pending?pending.text:"";
+  if(!held && !finalBuf && !interimBuf){
     b.classList.add("idle");
     b.innerHTML='<span class="ph">마이크 버튼을 누르고 말하면<br>이 자리에 글자가 나타납니다.</span>';
   } else {
     b.classList.remove("idle");
-    b.innerHTML='<span class="final"></span><span class="interim"></span>';
-    b.querySelector(".final").textContent=finalBuf;
-    b.querySelector(".interim").textContent=(finalBuf?" ":"")+interimBuf;
+    b.innerHTML="";
+    function line(cls,txt){
+      var el=document.createElement("span"); el.className=cls; el.textContent=txt; b.appendChild(el);
+    }
+    if(held) line("final"+(pending.committed?" done":""), held);
+    if(finalBuf) line("final", finalBuf);
+    if(interimBuf){
+      if(held||finalBuf){ var hr=document.createElement("span"); hr.className="sep"; b.appendChild(hr); }
+      line("interim", interimBuf);
+    }
   }
   b.scrollTop=b.scrollHeight;
-  $("#saveBtn").disabled = !(finalBuf.trim()||interimBuf.trim());
+  renderHoldPill();
+  $("#saveBtn").disabled = !((pending && !pending.committed) || finalBuf.trim() || interimBuf.trim());
 }
 function setStatus(t,on){
   $("#statusText").textContent=t;
@@ -673,7 +711,11 @@ function buildRec(){
       if(res.isFinal){
         var t=txt.trim();
         if(t){
-          if(S.autoSave){ addRecord(t,"voice"); finalBuf=""; }
+          if(S.autoSave){
+            commitPending();   /* 직전 발화를 기록으로 넘긴다 */
+            holdPending(t);    /* 새 발화를 화면에 유지한다 */
+            finalBuf="";
+          }
           else { finalBuf=(finalBuf?finalBuf+" ":"")+t; }
         }
       } else itm+=txt;
@@ -711,7 +753,7 @@ function toggleMic(){
   if(wantListen){
     wantListen=false; try{rec&&rec.stop();}catch(e){}
     setStatus("대기 중",false); releaseWake();
-    if(!S.autoSave && (finalBuf.trim())){ /* 사용자가 저장 버튼으로 확정 */ }
+    if(commitPending()){ renderLive(); toast("화면의 발화를 기록했습니다."); }
   } else {
     wantListen=true; restartAt=Date.now(); start(); requestWake();
   }
@@ -743,10 +785,17 @@ function closePanel(){ $("#panel").hidden=true; $("#ovl").hidden=true; }
 /* ========== 이벤트 바인딩 ========== */
 function bind(){
   $("#micBtn").onclick=toggleMic;
-  $("#clearBtn").onclick=function(){ finalBuf=""; interimBuf=""; renderLive(); };
+  $("#clearBtn").onclick=function(){
+    var lost = pending && !pending.committed;
+    pending=null; finalBuf=""; interimBuf=""; renderLive();
+    toast(lost?"기록하지 않고 지웠습니다.":"화면을 비웠습니다.");
+  };
   $("#saveBtn").onclick=function(){
+    var did=commitPending();
     var t=(finalBuf+" "+interimBuf).trim();
-    if(addRecord(t,"voice")){ finalBuf=""; interimBuf=""; renderLive(); toast("기록했습니다."); }
+    if(t){ addRecord(t,"voice"); finalBuf=""; interimBuf=""; did=true; }
+    renderLive();
+    toast(did?"기록했습니다.":"기록할 내용이 없습니다.");
   };
   $("#manualBtn").onclick=function(){
     var ta=$("#manualText");
@@ -777,7 +826,10 @@ function bind(){
     S.speakers.push(n); S.speaker=n; i.value=""; saveSet(); renderSpeakers(); toast(n+" 추가됨");
   };
   $("#newSpeaker").onkeydown=function(e){ if(e.key==="Enter"){e.preventDefault();$("#addSpeaker").click();} };
-  $("#autoChip").onclick=function(){ S.autoSave=!S.autoSave; this.setAttribute("aria-pressed",S.autoSave?"true":"false"); saveSet(); };
+  $("#autoChip").onclick=function(){
+    S.autoSave=!S.autoSave; this.setAttribute("aria-pressed",S.autoSave?"true":"false"); saveSet();
+    if(!S.autoSave){ commitPending(); pending=null; renderLive(); }
+  };
   $("#wakeChip").onclick=function(){ S.wakeLock=!S.wakeLock; this.setAttribute("aria-pressed",S.wakeLock?"true":"false"); saveSet();
     if(!S.wakeLock) releaseWake(); else if(wantListen) requestWake(); };
 
