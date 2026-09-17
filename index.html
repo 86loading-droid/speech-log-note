@@ -133,8 +133,12 @@
 .playing{border-color:var(--live)!important;color:var(--live)!important}
 .recdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--live);margin-right:6px}
 .act{min-height:56px;font-size:.95rem}
+.microw{display:grid;grid-template-columns:2fr 1fr;gap:8px}
+@media(max-width:430px){.microw{grid-template-columns:1fr 1fr}}
 .mic{min-height:88px;font-size:1.25rem;border-radius:16px;
   touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#recBtn{font-size:1.02rem}
+#recBtn.rec{background:var(--live);border-color:var(--live);color:var(--live-ink)}
 .mic:active{transform:scale(.99)}
 .speaking{border-color:var(--ok)!important;color:var(--ok)!important}
 /* 세로 공간이 좁은 기기(가로 모드, 작은 휴대폰)에서는 부가 요소를 줄인다 */
@@ -145,6 +149,8 @@
   .stage{gap:8px}
 }
 @media(max-height:520px){
+  #recBtn{font-size:.88rem}
+  .microw{grid-template-columns:1fr 1fr}
   .topbar-in{padding:6px 16px}
   .tabs{margin:8px 0;padding:4px}
   .tab{min-height:38px;padding:8px}
@@ -155,7 +161,7 @@
 }
 /* 가로로 누운 화면: 마이크와 보조 버튼을 한 줄에 나란히 */
 @media(max-height:520px) and (min-width:560px){
-  .controls{grid-template-columns:minmax(160px,1fr) 2.2fr;align-items:stretch}
+  .controls{grid-template-columns:minmax(200px,1fr) 2fr;align-items:stretch}
 }
 #app.focus #micNote{display:none}
 .mic.rec{background:var(--live);border-color:var(--live);color:var(--live-ink)}
@@ -265,7 +271,10 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
         <textarea class="liveedit" id="liveEdit" hidden aria-label="기록 전 내용 수정"></textarea>
         <div class="holdbar" id="holdBar" hidden aria-hidden="true"><i></i></div>
         <div class="controls">
-          <button class="btn primary mic" id="micBtn">🎤 누르고 말하기</button>
+          <div class="microw">
+            <button class="btn primary mic" id="micBtn">🎤 누르고 말하기</button>
+            <button class="btn mic" id="recBtn">🔴 목소리 녹음</button>
+          </div>
           <div class="actrow">
             <button class="btn act" id="playBtn" disabled>▶️ 듣기</button>
             <button class="btn act" id="editBtn">✏️ 수정</button>
@@ -274,7 +283,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
             <button class="btn act" id="clearBtn" title="기록하지 않고 화면을 지웁니다">🧹 지우기</button>
           </div>
         </div>
-        <p class="note" id="micNote">마이크 버튼을 누르고 있는 동안만 녹음됩니다. 손을 떼면 멈추고 글자는 화면에 그대로 남습니다. 듣기로 방금 말한 목소리를, 읽어주기로 글자를 소리로 확인한 뒤 기록하기를 누르면 저장됩니다. 음성은 이 기기 안에만 남고 보관 시간이 지나면 자동으로 지워집니다.</p>
+        <p class="note" id="micNote">왼쪽 버튼을 누르고 있는 동안 말하면 글자가 나오고, 녹음이 켜진 학생은 목소리도 함께 담깁니다. 오른쪽 목소리 녹음 버튼은 인식 없이 소리만 담을 때 씁니다. 듣기로 목소리를, 읽어주기로 글자를 확인한 뒤 기록하기를 누르면 저장됩니다. 갤럭시 태블릿의 Chrome 기준으로 만들었습니다.</p>
       </div>
     </section>
 
@@ -515,8 +524,29 @@ var S = Object.assign({
   recAudio:true, recKeepMin:60, recBps:16000
 }, store.get(K_SET,{}));
 if(typeof S.recKeepMin!=="number") S.recKeepMin=60;
+normSpeakers();
 if(typeof S.recBps!=="number") S.recBps=16000;
 if(["push","hold","cont"].indexOf(S.mode)<0) S.mode="push";
+/* 화자를 {name, rec} 객체로 정규화한다. 예전 저장본은 이름 문자열 배열이었다. */
+function normSpeakers(){
+  var arr=Array.isArray(S.speakers)?S.speakers:[];
+  S.speakers=arr.map(function(x){
+    return (typeof x==="string") ? {name:x, rec:true}
+                                 : {name:(x&&x.name)||"학생", rec:!(x&&x.rec===false)};
+  }).filter(function(x){return !!x.name;});
+  if(!S.speakers.length) S.speakers=[{name:"학생 1", rec:true}];
+  var has=S.speakers.some(function(x){return x.name===S.speaker;});
+  if(!has) S.speaker=S.speakers[0].name;
+}
+function spkOf(name){
+  for(var i=0;i<S.speakers.length;i++) if(S.speakers[i].name===name) return S.speakers[i];
+  return null;
+}
+/* 지금 화자에게 녹음이 허용되는가 */
+function recAllowed(){
+  var x=spkOf(S.speaker);
+  return !!(S.recAudio && x && x.rec!==false);
+}
 if(typeof S.ttsRate!=="number") S.ttsRate=0.9;
 if(!Array.isArray(S.fixes)) S.fixes=[];
 if(typeof S.holdSec!=="number") S.holdSec=30;
@@ -563,34 +593,54 @@ function applyFs(){
 /* ========== 화자 ========== */
 function renderSpeakers(){
   var c=$("#speakerChips"); c.innerHTML="";
-  S.speakers.forEach(function(n){
+  S.speakers.forEach(function(sp){
     var b=document.createElement("button");
-    b.className="chip"; b.type="button"; b.textContent=n;
-    b.setAttribute("aria-pressed", n===S.speaker?"true":"false");
-    b.onclick=function(){ S.speaker=n; saveSet(); renderSpeakers(); };
+    b.className="chip"; b.type="button";
+    b.textContent=(sp.rec!==false?"● ":"")+sp.name;
+    b.title=(sp.rec!==false?"녹음 켜짐":"녹음 꺼짐")+" — "+sp.name;
+    b.setAttribute("aria-pressed", sp.name===S.speaker?"true":"false");
+    b.onclick=function(){ S.speaker=sp.name; saveSet(); renderSpeakers(); renderLive(); };
     c.appendChild(b);
   });
+  /* 선택된 화자 칩이 가로 스크롤 밖에 있으면 보이도록 당긴다 */
+  var sel=c.querySelector('[aria-pressed="true"]');
+  if(sel && sel.scrollIntoView){ try{ sel.scrollIntoView({block:"nearest",inline:"nearest"}); }catch(e){} }
   var add=document.createElement("button");
   add.className="btn sm"; add.textContent="＋ 화자 추가"; add.onclick=openPanel;
   c.appendChild(add);
-  $("#speakerNow").textContent="화자: "+(S.speaker||"—");
+  $("#speakerNow").textContent="화자: "+(S.speaker||"—")+
+    (S.recAudio ? (recAllowed()?" · 녹음 켬":" · 녹음 끔") : "");
 
   var m=$("#speakerManage"); m.innerHTML="";
-  S.speakers.forEach(function(n){
-    var w=document.createElement("span");
-    w.className="chip"; w.style.cursor="default"; w.style.gap="8px";
-    w.innerHTML=esc(n)+' <button class="btn sm danger" style="margin-left:8px" aria-label="'+esc(n)+' 삭제">✕</button>';
-    w.querySelector("button").onclick=function(){
-      if(S.speakers.length<=1){toast("화자는 최소 1명 필요합니다.");return;}
-      S.speakers=S.speakers.filter(function(x){return x!==n;});
-      if(S.speaker===n)S.speaker=S.speakers[0];
-      saveSet(); renderSpeakers(); renderFilters();
+  S.speakers.forEach(function(sp){
+    var row=document.createElement("div"); row.className="fixrow";
+    var left=document.createElement("div");
+    left.innerHTML='<div class="ft"></div><div class="fh">'+(sp.rec!==false?"목소리 녹음 켬":"목소리 녹음 끔")+'</div>';
+    left.querySelector(".ft").textContent=sp.name;
+    var wrap=document.createElement("div"); wrap.style.display="flex"; wrap.style.gap="6px";
+    var tg=document.createElement("button");
+    tg.className="btn sm"+(sp.rec!==false?" primary":"");
+    tg.textContent=sp.rec!==false?"녹음 켬":"녹음 끔";
+    tg.setAttribute("aria-pressed", sp.rec!==false?"true":"false");
+    tg.onclick=function(){
+      sp.rec=(sp.rec===false);
+      saveSet(); renderSpeakers(); renderLive();
+      toast(sp.name+" 녹음 "+(sp.rec!==false?"켬":"끔"));
     };
-    m.appendChild(w);
+    var del=document.createElement("button");
+    del.className="btn sm danger"; del.textContent="✕"; del.setAttribute("aria-label",sp.name+" 삭제");
+    del.onclick=function(){
+      if(S.speakers.length<=1){toast("화자는 최소 1명 필요합니다.");return;}
+      S.speakers=S.speakers.filter(function(x){return x.name!==sp.name;});
+      if(S.speaker===sp.name)S.speaker=S.speakers[0].name;
+      saveSet(); renderSpeakers(); renderFilters(); renderLive();
+    };
+    wrap.appendChild(tg); wrap.appendChild(del);
+    row.appendChild(left); row.appendChild(wrap); m.appendChild(row);
   });
   var sel=$("#fSpeaker"), cur=sel.value;
   sel.innerHTML='<option value="">전체</option>';
-  var names={}; RECS.forEach(function(r){names[r.speaker]=1;}); S.speakers.forEach(function(n){names[n]=1;});
+  var names={}; RECS.forEach(function(r){names[r.speaker]=1;}); S.speakers.forEach(function(x){names[x.name]=1;});
   Object.keys(names).sort().forEach(function(n){
     var o=document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o);
   });
@@ -1011,7 +1061,7 @@ function idleRelease(){
   recIdleT=setTimeout(releaseMic,180000);   /* 3분간 쓰지 않으면 마이크를 놓는다 */
 }
 function startRec(){
-  if(!S.recAudio || !recSupported()) return;
+  if(!S.recAudio || !recSupported() || !recAllowed()) return;
   var go=function(){
     try{
       recChunks=[];
@@ -1238,6 +1288,7 @@ function renderLive(){
   b.scrollTop=b.scrollHeight;
   renderHoldPill();
   $("#saveBtn").disabled = !((pending && !pending.committed) || finalBuf.trim() || interimBuf.trim());
+  renderRecBtn();
   var pb=$("#playBtn");
   if(pb){
     pb.disabled=!recBlob;
@@ -1289,10 +1340,10 @@ function buildRec(){
     var c=e.error;
     if(c==="not-allowed"||c==="service-not-allowed"){
       wantListen=false; setStatus("마이크 권한이 거부되었습니다",false);
-      banner("마이크 사용이 차단되었습니다. 주소창의 자물쇠 아이콘에서 마이크를 허용한 뒤 새로 고침하세요. 이 페이지는 https:// 주소에서만 마이크를 쓸 수 있으며, 다른 화면 안에 끼워 넣어 보는(iframe) 경우에도 차단됩니다. 그때는 배포 주소로 직접 접속하세요.");
+      banner("마이크 사용이 차단되었습니다. Chrome 주소창의 자물쇠 아이콘에서 마이크를 허용한 뒤 새로 고침하세요. 이 페이지는 https:// 주소에서만 마이크를 쓸 수 있으며, 다른 화면 안에 끼워 넣어 보는(iframe) 경우에도 차단됩니다. 그때는 배포 주소로 직접 접속하세요.");
     } else if(c==="audio-capture"){
       wantListen=false; setStatus("마이크 장치를 찾지 못했습니다",false);
-      banner("연결된 마이크를 찾지 못했습니다. 태블릿·휴대폰의 내장 마이크가 다른 앱에 점유되어 있지 않은지 확인하세요.");
+      banner("연결된 마이크를 찾지 못했습니다. 갤럭시 태블릿의 내장 마이크가 다른 앱에 점유되어 있지 않은지 확인하세요.");
     } else if(c==="network"){
       setStatus("네트워크 오류 — 재시도 중",true);
     }
@@ -1343,6 +1394,37 @@ function pttUp(){
   endListen(false);
   var m=$("#micBtn"); m.classList.remove("rec"); m.textContent="🎤 누르고 말하기";
 }
+/* 목소리 녹음 전용 버튼: 누르는 동안 음성만 담는다(인식은 하지 않음) */
+var vrHold=false;
+function vrLabel(on){
+  var b=$("#recBtn"); if(!b) return;
+  b.classList.toggle("rec",!!on);
+  b.textContent = on ? "🔴 녹음 중" : "🔴 목소리 녹음";
+}
+function vrDown(e){
+  if(vrHold) return;
+  if(e && e.preventDefault) e.preventDefault();
+  if(!S.recAudio){ toast("설정에서 녹음을 켜 주세요."); return; }
+  if(!recAllowed()){ toast(S.speaker+" 학생은 녹음이 꺼져 있습니다."); return; }
+  if(!recSupported()){ toast("이 브라우저는 녹음을 지원하지 않습니다."); return; }
+  if(editing){ toast("수정을 마친 뒤 녹음하세요."); return; }
+  if(wantListen) return;
+  clearClip(); startRec(); vrHold=true; vrLabel(true);
+}
+function vrUp(){
+  if(!vrHold) return;
+  vrHold=false; stopRec(); vrLabel(false);
+  setTimeout(function(){ if(recBlob) toast("목소리를 담았습니다. 듣기로 확인하세요."); },400);
+}
+function renderRecBtn(){
+  var b=$("#recBtn"); if(!b) return;
+  var ok=S.recAudio && recAllowed() && recSupported();
+  b.disabled=!ok;
+  b.title = !recSupported() ? "이 브라우저는 녹음을 지원하지 않습니다"
+          : !S.recAudio ? "설정에서 녹음을 켜 주세요"
+          : !recAllowed() ? (S.speaker+" 학생은 녹음이 꺼져 있습니다")
+          : "누르고 있는 동안 "+S.speaker+" 학생의 목소리를 담습니다";
+}
 function applyMode(){
   var m=$("#micBtn");
   ptt=false; m.classList.remove("rec");
@@ -1384,6 +1466,18 @@ function bind(){
   mic.addEventListener("contextmenu",function(e){e.preventDefault();});
   window.addEventListener("pointerup",pttUp);
   window.addEventListener("pointercancel",pttUp);
+
+  var vrb=$("#recBtn");
+  vrb.addEventListener("pointerdown",vrDown);
+  vrb.addEventListener("contextmenu",function(e){e.preventDefault();});
+  window.addEventListener("pointerup",vrUp);
+  window.addEventListener("pointercancel",vrUp);
+  vrb.addEventListener("keydown",function(e){
+    if(e.key===" "||e.key==="Enter"){ e.preventDefault(); if(!e.repeat) vrDown(); }
+  });
+  vrb.addEventListener("keyup",function(e){
+    if(e.key===" "||e.key==="Enter"){ e.preventDefault(); vrUp(); }
+  });
   mic.addEventListener("keydown",function(e){
     if(S.mode!=="push") return;
     if(e.key===" "||e.key==="Enter"){ e.preventDefault(); if(!e.repeat) pttDown(); }
@@ -1428,7 +1522,8 @@ function bind(){
   $("#recChip").onclick=function(){
     if(!recSupported()){ toast("이 브라우저는 녹음을 지원하지 않습니다."); return; }
     S.recAudio=!S.recAudio; this.setAttribute("aria-pressed",S.recAudio?"true":"false"); saveSet();
-    if(!S.recAudio){ releaseMic(); clearClip(); renderLive(); }
+    if(!S.recAudio){ releaseMic(); clearClip(); }
+    renderSpeakers(); renderLive();
   };
   $("#recKeepSel").onchange=function(){ S.recKeepMin=+this.value; saveSet(); purgeAudio(false); };
   $("#recRateSel").onchange=function(){ S.recBps=+this.value; saveSet(); };
@@ -1473,8 +1568,9 @@ function bind(){
   $("#addSpeaker").onclick=function(){
     var i=$("#newSpeaker"), n=i.value.trim();
     if(!n){toast("이름을 입력하세요.");return;}
-    if(S.speakers.indexOf(n)>=0){toast("이미 있는 이름입니다.");return;}
-    S.speakers.push(n); S.speaker=n; i.value=""; saveSet(); renderSpeakers(); toast(n+" 추가됨");
+    if(S.speakers.some(function(x){return x.name===n;})){toast("이미 있는 이름입니다.");return;}
+    S.speakers.push({name:n, rec:true}); S.speaker=n; i.value="";
+    saveSet(); renderSpeakers(); renderLive(); toast(n+" 추가됨");
   };
   $("#newSpeaker").onkeydown=function(e){ if(e.key==="Enter"){e.preventDefault();$("#addSpeaker").click();} };
 
@@ -1520,7 +1616,11 @@ function bind(){
         });
         RECS.sort(function(a,b){return (b.ts||"").localeCompare(a.ts||"");});
         if(o.settings&&Array.isArray(o.settings.speakers)){
-          o.settings.speakers.forEach(function(s){ if(S.speakers.indexOf(s)<0)S.speakers.push(s); });
+          o.settings.speakers.forEach(function(x){
+            var nm=(typeof x==="string")?x:(x&&x.name);
+            if(nm && !S.speakers.some(function(y){return y.name===nm;}))
+              S.speakers.push({name:nm, rec:!(x&&x.rec===false)});
+          });
         }
         if(o.settings&&Array.isArray(o.settings.fixes)){
           o.settings.fixes.forEach(function(f){
@@ -1562,13 +1662,19 @@ function init(){
   $("#recChip").setAttribute("aria-pressed",S.recAudio?"true":"false");
   $("#recKeepSel").value=String(S.recKeepMin);
   $("#recRateSel").value=String(S.recBps);
+  renderRecBtn();
   purgeAudio(false);
   setInterval(function(){ purgeAudio(false); }, 60000);
   window.addEventListener("pagehide",releaseMic);
   $("#holdSel").value=String(S.holdSec);
   renderFixList();
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+  if(isIOS){
+    banner("이 앱은 갤럭시(안드로이드) 태블릿의 Chrome 기준으로 만들었습니다. 아이패드·아이폰은 지원 대상이 아니며, 음성 인식과 목소리 녹음이 제대로 동작하지 않습니다. 갤럭시 태블릿에서 열어 주세요.");
+  }
   if(!SR){
-    banner("이 브라우저는 음성 인식(Web Speech API)을 지원하지 않습니다. 안드로이드·PC는 Chrome, 아이패드·아이폰은 Safari 최신판을 권장합니다. 그동안에는 아래 직접 입력 기능을 사용하세요.");
+    banner("이 브라우저는 음성 인식(Web Speech API)을 지원하지 않습니다. 갤럭시 태블릿의 Chrome 에서 열어 주세요. 그동안에는 수정 버튼으로 키보드 입력만 사용할 수 있습니다.");
     $("#micBtn").disabled=true;
   } else if(location.protocol!=="https:" && location.hostname!=="localhost" && location.protocol!=="file:"){
     banner("현재 주소가 https가 아니므로 마이크가 차단될 수 있습니다. GitHub Pages 등 https 주소로 접속하세요.");
