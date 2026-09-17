@@ -81,9 +81,27 @@
 /* ===== 무대(전체화면형 기록 화면) ===== */
 .stage{display:flex;flex-direction:column;gap:10px;padding-top:4px;overflow:hidden}
 .stagebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.stagebar .chiprow{flex:1 1 140px;min-width:0;flex-wrap:nowrap;overflow-x:auto;
-  -webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:2px}
-.stagebar .chiprow>*{flex:none}
+.stagebar{gap:6px}
+.stagebar .chiprow{flex:1 1 200px;min-width:0;flex-wrap:wrap;gap:6px}
+.stagebar .chip{padding:8px 14px;min-height:42px;font-size:.95rem}
+@media(max-width:700px){.stagebar .chiprow{max-height:100px;overflow-y:auto}}
+.stagebar .btn.sm{min-height:38px}
+.stagemain{display:flex;flex-direction:column;gap:8px;min-height:0;flex:1 1 auto}
+.stageside{display:flex;flex-direction:column;gap:8px}
+
+/* 녹음 중임을 크게 알리는 표시 (시각적 지원) */
+.reclive{display:flex;align-items:center;gap:10px;border:3px solid var(--live);
+  border-radius:12px;padding:8px 12px;background:var(--surface)}
+.reclive[hidden]{display:none}
+.reclive .rdot{width:16px;height:16px;border-radius:50%;background:var(--live);flex:none;
+  animation:p 1s infinite}
+.reclive .rtxt{font-weight:800;color:var(--live);font-size:1.05rem;white-space:nowrap}
+.reclive .meter{flex:1 1 auto;height:16px;border-radius:999px;background:var(--surface2);
+  overflow:hidden;border:1px solid var(--line)}
+.reclive .meter i{display:block;height:100%;width:0;background:var(--live);
+  border-radius:999px;transition:width .08s linear}
+
+}
 @media(max-width:430px){
   .stagebar .chip{padding:8px 12px;min-height:40px;font-size:.9rem}
   .stagebar .btn.sm{min-height:34px;padding:5px 8px}
@@ -224,6 +242,31 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .hr{height:2px;background:var(--line);border:0;margin:18px 0}
 .row-end{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+/* ===== 가로 화면 배치 (뒤에 오는 규칙에 덮이지 않도록 마지막에 둔다) ===== */
+/* 가로로 눕힌 태블릿: 자막을 왼쪽에 크게, 버튼을 오른쪽 세로줄에 */
+@media (orientation:landscape) and (min-width:900px){
+  .topbar-in{padding:6px 16px}
+  .tabs{margin:8px 0;padding:4px}
+  .tab{min-height:40px;padding:8px}
+  .stage{display:grid;grid-template-columns:1fr 264px;grid-template-rows:auto 1fr;
+    gap:10px;grid-template-areas:"bar bar" "main side"}
+  .stagebar{grid-area:bar}
+  .stagemain{grid-area:main}
+  .stageside{grid-area:side;min-height:0;overflow-y:auto}
+  .microw{grid-template-columns:1fr}
+  .actrow{grid-template-columns:1fr}
+  .mic{min-height:76px;font-size:1.1rem;width:100%}
+  #recBtn{font-size:1rem;min-height:64px}
+  .stageside .btn{width:100%}
+  .act{min-height:50px;font-size:.92rem}
+  #micNote{margin-top:2px}
+}
+@media (orientation:landscape) and (min-width:900px) and (max-height:700px){
+  .mic{min-height:60px;font-size:1rem}
+  #recBtn{min-height:54px;font-size:.92rem}
+  .act{min-height:44px;font-size:.86rem}
+  #micNote{display:none}
+
 </style>
 <!--/AR-->
 </head>
@@ -252,24 +295,31 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
       <div class="stage" id="stage">
         <div class="stagebar">
           <div class="chiprow" id="speakerChips"></div>
-          <span class="sbspace"></span>
           <button class="btn sm" id="fsDown" aria-label="글자 작게">A−</button>
           <span class="fsval" id="fsVal">44pt</span>
           <button class="btn sm" id="fsUp" aria-label="글자 크게">A+</button>
           <button class="btn sm" id="focusBtn" aria-pressed="false">⛶ 전체화면</button>
         </div>
-        <div class="statusline">
-          <span class="pulse" id="pulse"></span>
-          <span id="statusText">대기 중</span>
-          <span aria-hidden="true">·</span>
-          <span id="speakerNow">화자: —</span>
-          <span class="pill" id="holdPill" hidden></span>
+        <div class="stagemain">
+          <div class="statusline">
+            <span class="pulse" id="pulse"></span>
+            <span id="statusText">대기 중</span>
+            <span aria-hidden="true">·</span>
+            <span id="speakerNow">화자: —</span>
+            <span class="pill" id="holdPill" hidden></span>
+          </div>
+          <div class="reclive" id="recLive" hidden aria-hidden="true">
+            <span class="rdot"></span>
+            <span class="rtxt">녹음 중</span>
+            <span class="meter"><i id="meterFill"></i></span>
+          </div>
+          <div class="livebox" id="liveBox" aria-live="polite" aria-atomic="false">
+            <span class="ph">버튼을 누르고 있는 동안 말하면<br>이 자리에 글자가 나타납니다.</span>
+          </div>
+          <textarea class="liveedit" id="liveEdit" hidden aria-label="기록 전 내용 수정"></textarea>
+          <div class="holdbar" id="holdBar" hidden aria-hidden="true"><i></i></div>
         </div>
-        <div class="livebox" id="liveBox" aria-live="polite" aria-atomic="false">
-          <span class="ph">아래 버튼을 누르고 있는 동안 말하면<br>이 자리에 글자가 나타납니다.</span>
-        </div>
-        <textarea class="liveedit" id="liveEdit" hidden aria-label="기록 전 내용 수정"></textarea>
-        <div class="holdbar" id="holdBar" hidden aria-hidden="true"><i></i></div>
+        <div class="stageside">
         <div class="controls">
           <div class="microw">
             <button class="btn primary mic" id="micBtn">🎤 누르고 말하기</button>
@@ -283,7 +333,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
             <button class="btn act" id="clearBtn" title="기록하지 않고 화면을 지웁니다">🧹 지우기</button>
           </div>
         </div>
-        <p class="note" id="micNote">왼쪽 버튼을 누르고 있는 동안 말하면 글자가 나오고, 녹음이 켜진 학생은 목소리도 함께 담깁니다. 오른쪽 목소리 녹음 버튼은 인식 없이 소리만 담을 때 씁니다. 듣기로 목소리를, 읽어주기로 글자를 확인한 뒤 기록하기를 누르면 저장됩니다. 갤럭시 태블릿의 Chrome 기준으로 만들었습니다.</p>
+        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 목소리 녹음 버튼은 소리가 들어오는 것을 학생에게 보여 주는 용도이며 저장하지 않습니다.</p>
+        </div>
       </div>
     </section>
 
@@ -1053,6 +1104,7 @@ function recMime(){
 }
 function recSupported(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder && recMime()); }
 function releaseMic(){
+  stopMeter(); showRecLive(false);
   if(recIdleT){ clearTimeout(recIdleT); recIdleT=null; }
   if(micStream){ try{ micStream.getTracks().forEach(function(t){t.stop();}); }catch(e){} micStream=null; }
 }
@@ -1071,8 +1123,10 @@ function startRec(){
         var b=recChunks.length?new Blob(recChunks,{type:recMime().split(";")[0]}):null;
         if(b && b.size>800){ recBlob=b; }
         recChunks=[]; mr=null; idleRelease(); renderLive();
+        if(!vrHold){ stopMeter(); showRecLive(false); }
       };
       mr.start(); recStartAt=Date.now();
+      showRecLive(true,"녹음 중"); startMeter();
     }catch(e){ mr=null; }
   };
   if(micStream && micStream.getAudioTracks().some(function(t){return t.readyState==="live";})) return go();
@@ -1086,6 +1140,45 @@ function stopRec(){
   try{ if(mr && mr.state!=="inactive") mr.stop(); }catch(e){ mr=null; }
 }
 function clearClip(){ recBlob=null; if(clipUrl){ try{URL.revokeObjectURL(clipUrl);}catch(e){} clipUrl=null; } stopClip(); }
+
+/* ===== 녹음 중임을 보여 주는 시각 지원 (레벨 미터) ===== */
+var actx=null, anz=null, srcN=null, meterRAF=null, meterBuf=null;
+function showRecLive(on,label){
+  var el=$("#recLive"); if(!el) return;
+  el.hidden=!on;
+  if(on && label) el.querySelector(".rtxt").textContent=label;
+  $("#liveBox").classList.toggle("on",!!on);
+}
+function startMeter(){
+  if(!micStream) return;
+  try{
+    var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    actx=actx||new AC();
+    if(actx.state==="suspended"){ try{actx.resume();}catch(e){} }
+    if(srcN){ try{srcN.disconnect();}catch(e){} }
+    srcN=actx.createMediaStreamSource(micStream);
+    anz=actx.createAnalyser(); anz.fftSize=512; anz.smoothingTimeConstant=0.4;
+    srcN.connect(anz);
+    meterBuf=new Uint8Array(anz.frequencyBinCount);
+    var fill=$("#meterFill");
+    var loop=function(){
+      if(!anz){ return; }
+      anz.getByteTimeDomainData(meterBuf);
+      var peak=0;
+      for(var i=0;i<meterBuf.length;i++){ var v=Math.abs(meterBuf[i]-128); if(v>peak) peak=v; }
+      var pct=Math.max(3, Math.min(100, Math.round(peak/70*100)));
+      if(fill) fill.style.width=pct+"%";
+      meterRAF=requestAnimationFrame(loop);
+    };
+    loop();
+  }catch(e){}
+}
+function stopMeter(){
+  if(meterRAF){ cancelAnimationFrame(meterRAF); meterRAF=null; }
+  try{ srcN&&srcN.disconnect(); }catch(e){}
+  srcN=null; anz=null;
+  var fill=$("#meterFill"); if(fill) fill.style.width="0%";
+}
 
 /* ===== 녹음 재생 ===== */
 var player=null, clipUrl=null, playingId=null;
@@ -1270,7 +1363,7 @@ function renderLive(){
   if(!held && !finalBuf && !interimBuf){
     b.classList.add("idle");
     b.innerHTML='<span class="ph">'+(S.mode==="push"
-      ? '아래 버튼을 누르고 있는 동안 말하면<br>이 자리에 글자가 나타납니다.'
+      ? '말하기 버튼을 누르고 있는 동안<br>이 자리에 글자가 나타납니다.'
       : '마이크 버튼을 누르고 말하면<br>이 자리에 글자가 나타납니다.')+'</span>';
   } else {
     b.classList.remove("idle");
@@ -1372,7 +1465,7 @@ function beginListen(){
   return true;
 }
 function endListen(commit){
-  wantListen=false; stopRec(); try{rec&&rec.stop();}catch(e){}
+  wantListen=false; stopRec(); stopMeter(); showRecLive(false); try{rec&&rec.stop();}catch(e){}
   setStatus("대기 중",false); releaseWake();
   if(commit && commitPending()){ renderLive(); toast("화면의 발화를 기록했습니다."); }
   renderLive();
@@ -1401,20 +1494,33 @@ function vrLabel(on){
   b.classList.toggle("rec",!!on);
   b.textContent = on ? "🔴 녹음 중" : "🔴 목소리 녹음";
 }
+/* 목소리 녹음 버튼은 소리가 들어오는 것을 학생에게 보여 주는 용도다.
+   저장하지 않고, 마이크 입력 크기를 막대로만 표시한다. */
 function vrDown(e){
   if(vrHold) return;
   if(e && e.preventDefault) e.preventDefault();
   if(!S.recAudio){ toast("설정에서 녹음을 켜 주세요."); return; }
   if(!recAllowed()){ toast(S.speaker+" 학생은 녹음이 꺼져 있습니다."); return; }
-  if(!recSupported()){ toast("이 브라우저는 녹음을 지원하지 않습니다."); return; }
-  if(editing){ toast("수정을 마친 뒤 녹음하세요."); return; }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    toast("이 브라우저는 마이크를 쓸 수 없습니다."); return;
+  }
+  if(editing){ toast("수정을 마친 뒤 눌러 주세요."); return; }
   if(wantListen) return;
-  clearClip(); startRec(); vrHold=true; vrLabel(true);
+  vrHold=true; vrLabel(true);
+  showRecLive(true,"녹음 중 — "+S.speaker+" 말해 보세요");
+  var go=function(){ if(vrHold) startMeter(); else { stopMeter(); showRecLive(false); } };
+  if(micStream && micStream.getAudioTracks().some(function(t){return t.readyState==="live";})) return go();
+  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,channelCount:1}})
+    .then(function(st){ micStream=st; go(); })
+    .catch(function(){
+      vrHold=false; vrLabel(false); showRecLive(false);
+      if(!recWarned){ recWarned=true; toast("마이크를 열지 못했습니다."); }
+    });
 }
 function vrUp(){
   if(!vrHold) return;
-  vrHold=false; stopRec(); vrLabel(false);
-  setTimeout(function(){ if(recBlob) toast("목소리를 담았습니다. 듣기로 확인하세요."); },400);
+  vrHold=false; vrLabel(false);
+  stopMeter(); showRecLive(false); idleRelease();
 }
 function renderRecBtn(){
   var b=$("#recBtn"); if(!b) return;
@@ -1423,7 +1529,7 @@ function renderRecBtn(){
   b.title = !recSupported() ? "이 브라우저는 녹음을 지원하지 않습니다"
           : !S.recAudio ? "설정에서 녹음을 켜 주세요"
           : !recAllowed() ? (S.speaker+" 학생은 녹음이 꺼져 있습니다")
-          : "누르고 있는 동안 "+S.speaker+" 학생의 목소리를 담습니다";
+          : "누르고 있는 동안 소리가 들어오는 것을 화면에 보여 줍니다 (저장하지 않음)";
 }
 function applyMode(){
   var m=$("#micBtn");
