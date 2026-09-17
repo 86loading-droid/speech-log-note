@@ -127,8 +127,11 @@
 @keyframes p{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
 
 .controls{display:grid;grid-template-columns:1fr;gap:8px;margin-top:2px}
-.actrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-@media(max-width:560px){.actrow{grid-template-columns:repeat(2,1fr)}}
+.actrow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+@media(max-width:860px){.actrow{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:520px){.actrow{grid-template-columns:repeat(2,1fr)}}
+.playing{border-color:var(--live)!important;color:var(--live)!important}
+.recdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--live);margin-right:6px}
 .act{min-height:56px;font-size:.95rem}
 .mic{min-height:88px;font-size:1.25rem;border-radius:16px;
   touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
@@ -264,13 +267,14 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
         <div class="controls">
           <button class="btn primary mic" id="micBtn">🎤 누르고 말하기</button>
           <div class="actrow">
+            <button class="btn act" id="playBtn" disabled>▶️ 듣기</button>
             <button class="btn act" id="editBtn">✏️ 수정</button>
             <button class="btn act" id="speakBtn">🔊 읽어주기</button>
             <button class="btn act primary" id="saveBtn" disabled>💾 기록하기</button>
             <button class="btn act" id="clearBtn" title="기록하지 않고 화면을 지웁니다">🧹 지우기</button>
           </div>
         </div>
-        <p class="note" id="micNote">마이크 버튼을 누르고 있는 동안만 녹음됩니다. 손을 떼면 멈추고 글자는 화면에 그대로 남습니다. 확인한 뒤 기록하기를 누르면 저장되고, 기록 전에 수정과 읽어주기를 쓸 수 있습니다.</p>
+        <p class="note" id="micNote">마이크 버튼을 누르고 있는 동안만 녹음됩니다. 손을 떼면 멈추고 글자는 화면에 그대로 남습니다. 듣기로 방금 말한 목소리를, 읽어주기로 글자를 소리로 확인한 뒤 기록하기를 누르면 저장됩니다. 음성은 이 기기 안에만 남고 보관 시간이 지나면 자동으로 지워집니다.</p>
       </div>
     </section>
 
@@ -443,6 +447,33 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     </div>
 
     <hr class="hr">
+    <h2>학생 목소리 녹음</h2>
+    <p class="note">마이크 버튼을 누르고 있는 동안의 음성을 함께 담아, 인식된 글자와 대조해 들을 수 있게 합니다. 파일로 내보내는 기능은 두지 않았습니다. 음성은 이 기기 안에만 남고 아래 보관 시간이 지나면 자동으로 지워집니다.</p>
+    <div class="chiprow" style="margin-top:10px">
+      <button class="chip" id="recChip" aria-pressed="true">녹음 사용</button>
+    </div>
+
+    <label class="f" for="recKeepSel">보관 시간</label>
+    <select id="recKeepSel">
+      <option value="10">10분</option>
+      <option value="30">30분</option>
+      <option value="60">1시간</option>
+    </select>
+
+    <label class="f" for="recRateSel">녹음 품질</label>
+    <select id="recRateSel">
+      <option value="16000">가장 낮음 (16kbps · 초당 약 2KB)</option>
+      <option value="24000">낮음 (24kbps · 초당 약 3KB)</option>
+      <option value="32000">보통 (32kbps · 초당 약 4KB)</option>
+    </select>
+
+    <p class="note" id="audioInfo"></p>
+    <div class="row-end" style="margin-top:8px">
+      <button class="btn danger sm" id="wipeAudio">지금 음성 모두 삭제</button>
+    </div>
+    <p class="note">학생의 음성은 개인정보입니다. 화자는 실명 대신 익명 코드로 등록하시고, 연구 자료로 쓰실 경우 보호자 동의와 기관생명윤리위원회 심의를 먼저 받으십시오.</p>
+
+    <hr class="hr">
     <h2>자주 틀리는 말 교정</h2>
     <p class="note">특정 낱말이 반복해서 잘못 인식되면 규칙을 등록하십시오. 인식된 문장에서 자동으로 바꿔 줍니다. 바뀌기 전 원문도 함께 보관되어 통계 탭에서 실제 인식률을 분석할 수 있습니다.</p>
     <div class="grid2" style="margin-top:10px">
@@ -480,8 +511,11 @@ var K_REC="sttlog.records.v1", K_SET="sttlog.settings.v1";
 var S = Object.assign({
   recorder:"", speakers:["학생 1"], speaker:"학생 1",
   livePt:44, recPt:20, theme:"", lang:"ko-KR", autoSave:true, wakeLock:true,
-  holdSec:30, fixes:[], mode:"push", ttsRate:0.9
+  holdSec:30, fixes:[], mode:"push", ttsRate:0.9,
+  recAudio:true, recKeepMin:60, recBps:16000
 }, store.get(K_SET,{}));
+if(typeof S.recKeepMin!=="number") S.recKeepMin=60;
+if(typeof S.recBps!=="number") S.recBps=16000;
 if(["push","hold","cont"].indexOf(S.mode)<0) S.mode="push";
 if(typeof S.ttsRate!=="number") S.ttsRate=0.9;
 if(!Array.isArray(S.fixes)) S.fixes=[];
@@ -632,6 +666,7 @@ function recCard(r, full){
       '<span class="tag">기록 '+esc(r.recorder)+'</span>'+
       '<span class="tag">'+(r.source==="manual"?"직접 입력":"음성")+'</span>'+
       '<span class="tag">'+r.chars+'자</span>'+
+      (r.audio?'<span class="tag"><span class="recdot"></span>녹음 '+r.audio.sec+'초</span>':'')+
       (r.fixed?'<span class="tag">자동 교정</span>':'')+
       (r.edited?'<span class="tag">교사 수정</span>':'')+
     '</div>'+
@@ -639,6 +674,7 @@ function recCard(r, full){
     (r.raw?'<div class="rawline"><b>인식 원문</b> · <span class="rawtxt"></span></div>':'')+
     (full?'<div class="rec-act">'+
       '<button class="btn sm" data-a="edit">✏️ 수정</button>'+
+      (r.audio?'<button class="btn sm" data-a="clip">▶️ 듣기</button>':'')+
       '<button class="btn sm" data-a="speak">🔊 읽어주기</button>'+
       '<button class="btn sm" data-a="copy">📋 복사</button>'+
       '<button class="btn sm danger" data-a="del">🗑️ 삭제</button>'+
@@ -648,10 +684,18 @@ function recCard(r, full){
   if(full){
     el.querySelector('[data-a="del"]').onclick=function(){
       if(!confirm("이 기록을 삭제할까요?\n\n"+r.text.slice(0,60))) return;
+      if(r.audio) audioDel([r.id]);
       RECS=RECS.filter(function(x){return x.id!==r.id;}); saveRecs(); renderAll(); toast("삭제했습니다.");
     };
     el.querySelector('[data-a="copy"]').onclick=function(){ copyText(r.text); };
     el.querySelector('[data-a="speak"]').onclick=function(){ speakText(r.text); };
+    var cb=el.querySelector('[data-a="clip"]');
+    if(cb) cb.onclick=function(){
+      audioGet(r.id,function(v){
+        if(!v||!v.blob){ delete r.audio; saveRecs(); renderLists(); toast("보관 시간이 지나 음성이 삭제되었습니다."); return; }
+        playBlob(v.blob, cb, r.id);
+      });
+    };
     el.querySelector('[data-a="edit"]').onclick=function(){
       var box=el.querySelector(".rec-text");
       if(el.dataset.editing==="1") return;
@@ -842,23 +886,175 @@ var rec=null, listening=false, wantListen=false, finalBuf="", interimBuf="", raw
 var fixCount=0, voiceUsed=false, editing=false, editedFlag=false, ptt=false;
 
 /* ===== 무대 높이: 기록 화면을 화면 전체처럼 채운다 ===== */
-function fitStage(){
+/* 무대 높이: 무대의 실제 화면상 위치를 재서 남은 높이를 채운다.
+   배너처럼 위쪽 요소가 늘어나도 그대로 반영되며, 높이를 준 뒤 위치가
+   바뀌면(페이지 스크롤이 사라지는 등) 한 번 더 맞춘다. */
+function fitStage(pass){
   var st=document.getElementById("stage"); if(!st) return;
   var pr=document.getElementById("p-rec");
   if(pr && pr.hidden){ st.style.height=""; return; }
-  var used=0;
-  var bar=document.querySelector(".topbar");
-  var tabs=document.querySelector(".tabs");
-  if(bar && getComputedStyle(bar).display!=="none") used+=bar.offsetHeight;
-  if(tabs && getComputedStyle(tabs).display!=="none"){
-    var cs=getComputedStyle(tabs);
-    used+=tabs.offsetHeight+parseFloat(cs.marginTop||0)+parseFloat(cs.marginBottom||0);
-  }
-  var h=Math.max(150,(window.innerHeight||600)-used-16);
+  var top=st.getBoundingClientRect().top;
+  if(top<0) top=0;
+  var h=Math.max(150,(window.innerHeight||600)-top-12);
   st.style.height=h+"px";
+  if(!pass){
+    requestAnimationFrame(function(){
+      var t2=st.getBoundingClientRect().top;
+      if(Math.abs(t2-top)>1) fitStage(1);
+    });
+  }
 }
 window.addEventListener("resize",fitStage);
 window.addEventListener("orientationchange",function(){ setTimeout(fitStage,250); });
+
+/* ===== 음성 보관소 (IndexedDB, 보관 시간이 지나면 자동 폐기) ===== */
+var DB=null, dbFail=false;
+function db(cb){
+  if(dbFail) return cb(null);
+  if(DB) return cb(DB);
+  try{
+    var rq=indexedDB.open("sttlog-audio",1);
+    rq.onupgradeneeded=function(e){
+      var d=e.target.result;
+      if(!d.objectStoreNames.contains("clips")) d.createObjectStore("clips");
+    };
+    rq.onsuccess=function(e){ DB=e.target.result; cb(DB); };
+    rq.onerror=function(){ dbFail=true; cb(null); };
+  }catch(e){ dbFail=true; cb(null); }
+}
+function audioPut(id,blob,cb){
+  db(function(d){
+    if(!d) return cb&&cb(false);
+    try{
+      var tx=d.transaction("clips","readwrite");
+      tx.objectStore("clips").put({blob:blob, at:Date.now()}, id);
+      tx.oncomplete=function(){ cb&&cb(true); };
+      tx.onerror=function(){ cb&&cb(false); };
+    }catch(e){ cb&&cb(false); }
+  });
+}
+function audioGet(id,cb){
+  db(function(d){
+    if(!d) return cb(null);
+    try{
+      var rq=d.transaction("clips").objectStore("clips").get(id);
+      rq.onsuccess=function(){ cb(rq.result||null); };
+      rq.onerror=function(){ cb(null); };
+    }catch(e){ cb(null); }
+  });
+}
+function audioDel(ids){
+  db(function(d){
+    if(!d) return;
+    try{
+      var tx=d.transaction("clips","readwrite"), st=tx.objectStore("clips");
+      ids.forEach(function(i){ st.delete(i); });
+    }catch(e){}
+  });
+}
+/* 보관 시간이 지난 음성을 지우고, 기록에서도 음성 표시를 뗀다 */
+function purgeAudio(force){
+  db(function(d){
+    if(!d) return;
+    var cutoff=Date.now()-(+S.recKeepMin||60)*60000;
+    var gone=[];
+    try{
+      var tx=d.transaction("clips","readwrite"), st=tx.objectStore("clips");
+      var cur=st.openCursor();
+      cur.onsuccess=function(e){
+        var c=e.target.result;
+        if(c){
+          if(force || !c.value || !c.value.at || c.value.at<cutoff){ gone.push(c.key); c.delete(); }
+          c.continue();
+        } else if(gone.length){
+          var m={}; gone.forEach(function(k){m[k]=1;});
+          var touched=false;
+          RECS.forEach(function(r){ if(r.audio && m[r.id]){ delete r.audio; touched=true; } });
+          if(touched){ saveRecs(); renderLists(); }
+          renderAudioInfo();
+        } else renderAudioInfo();
+      };
+    }catch(e){}
+  });
+}
+function renderAudioInfo(){
+  var el=$("#audioInfo"); if(!el) return;
+  db(function(d){
+    if(!d){ el.textContent="이 브라우저에서는 음성 보관소를 열 수 없습니다. 녹음 없이 글자만 기록됩니다."; return; }
+    try{
+      var tx=d.transaction("clips"), st=tx.objectStore("clips");
+      var n=0,bytes=0, cur=st.openCursor();
+      cur.onsuccess=function(e){
+        var c=e.target.result;
+        if(c){ n++; bytes+=(c.value&&c.value.blob&&c.value.blob.size)||0; c.continue(); }
+        else el.textContent="보관 중인 음성 "+n+"개 · 약 "+(bytes/1024/1024).toFixed(2)+"MB · "+
+          (+S.recKeepMin||60)+"분이 지나면 자동 삭제";
+      };
+    }catch(e){}
+  });
+}
+
+/* ===== 녹음 ===== */
+var micStream=null, mr=null, recChunks=[], recBlob=null, recStartAt=0, recIdleT=null, recWarned=false;
+function recMime(){
+  var t=["audio/webm;codecs=opus","audio/webm","audio/mp4"];
+  for(var i=0;i<t.length;i++){ if(window.MediaRecorder && MediaRecorder.isTypeSupported(t[i])) return t[i]; }
+  return "";
+}
+function recSupported(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder && recMime()); }
+function releaseMic(){
+  if(recIdleT){ clearTimeout(recIdleT); recIdleT=null; }
+  if(micStream){ try{ micStream.getTracks().forEach(function(t){t.stop();}); }catch(e){} micStream=null; }
+}
+function idleRelease(){
+  if(recIdleT) clearTimeout(recIdleT);
+  recIdleT=setTimeout(releaseMic,180000);   /* 3분간 쓰지 않으면 마이크를 놓는다 */
+}
+function startRec(){
+  if(!S.recAudio || !recSupported()) return;
+  var go=function(){
+    try{
+      recChunks=[];
+      mr=new MediaRecorder(micStream,{mimeType:recMime(), audioBitsPerSecond:(+S.recBps||16000)});
+      mr.ondataavailable=function(e){ if(e.data && e.data.size) recChunks.push(e.data); };
+      mr.onstop=function(){
+        var b=recChunks.length?new Blob(recChunks,{type:recMime().split(";")[0]}):null;
+        if(b && b.size>800){ recBlob=b; }
+        recChunks=[]; mr=null; idleRelease(); renderLive();
+      };
+      mr.start(); recStartAt=Date.now();
+    }catch(e){ mr=null; }
+  };
+  if(micStream && micStream.getAudioTracks().some(function(t){return t.readyState==="live";})) return go();
+  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,channelCount:1}})
+    .then(function(st){ micStream=st; go(); })
+    .catch(function(){
+      if(!recWarned){ recWarned=true; toast("녹음을 시작하지 못해 글자만 기록합니다."); }
+    });
+}
+function stopRec(){
+  try{ if(mr && mr.state!=="inactive") mr.stop(); }catch(e){ mr=null; }
+}
+function clearClip(){ recBlob=null; if(clipUrl){ try{URL.revokeObjectURL(clipUrl);}catch(e){} clipUrl=null; } stopClip(); }
+
+/* ===== 녹음 재생 ===== */
+var player=null, clipUrl=null, playingId=null;
+function stopClip(){
+  if(player){ try{ player.pause(); }catch(e){} player=null; }
+  playingId=null;
+  var b=$("#playBtn"); if(b){ b.classList.remove("playing"); b.textContent="▶️ 듣기"; }
+  $$(".rec .btn.playing").forEach(function(x){ x.classList.remove("playing"); x.textContent="▶️ 듣기"; });
+}
+function playBlob(blob, btn, id){
+  if(playingId===id){ stopClip(); return; }
+  stopClip();
+  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){} setSpeakState(false);
+  var url=URL.createObjectURL(blob);
+  player=new Audio(url); playingId=id;
+  if(btn){ btn.classList.add("playing"); btn.textContent="⏹️ 멈추기"; }
+  player.onended=player.onerror=function(){ try{URL.revokeObjectURL(url);}catch(e){} stopClip(); };
+  player.play().catch(function(){ toast("재생하지 못했습니다."); stopClip(); });
+}
 
 /* ===== 읽어주기 (TTS) ===== */
 var ttsVoices=[];
@@ -947,6 +1143,15 @@ function saveCurrent(){
   if(!t){ toast("기록할 내용이 없습니다."); return; }
   var raw=(rawBuf && rawBuf.trim()!==t)?rawBuf.trim():"";
   addRecord(t, voiceUsed?"voice":"manual", null, null, null, raw, fixCount, editedFlag);
+  if(recBlob && RECS[0]){
+    var id=RECS[0].id, sec=Math.max(1,Math.round((recBlob.size)/((+S.recBps||16000)/8)));
+    RECS[0].audio={ sec:sec, bytes:recBlob.size, at:Date.now() };
+    audioPut(id, recBlob, function(ok){
+      if(!ok && RECS[0] && RECS[0].id===id){ delete RECS[0].audio; }
+      saveRecs(); renderLists(); renderAudioInfo();
+    });
+  }
+  clearClip();
   finalBuf=""; interimBuf=""; rawBuf=""; fixCount=0; voiceUsed=false; editedFlag=false;
   pending=null; stopHoldTimer(); renderLive();
   toast("기록했습니다.");
@@ -1033,6 +1238,11 @@ function renderLive(){
   b.scrollTop=b.scrollHeight;
   renderHoldPill();
   $("#saveBtn").disabled = !((pending && !pending.committed) || finalBuf.trim() || interimBuf.trim());
+  var pb=$("#playBtn");
+  if(pb){
+    pb.disabled=!recBlob;
+    pb.title=recBlob?("방금 녹음한 목소리 재생 · 약 "+Math.round(recBlob.size/1024)+"KB"):"녹음된 음성이 없습니다";
+  }
 }
 function setStatus(t,on){
   $("#statusText").textContent=t;
@@ -1105,11 +1315,13 @@ function beginListen(){
   if(!SR){ toast("이 브라우저는 음성 인식을 지원하지 않습니다."); return false; }
   if(editing){ toast("수정을 마친 뒤 녹음하세요."); return false; }
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); setSpeakState(false); }catch(e){}
+  clearClip();
   wantListen=true; restartAt=Date.now(); start(); requestWake();
+  startRec();
   return true;
 }
 function endListen(commit){
-  wantListen=false; try{rec&&rec.stop();}catch(e){}
+  wantListen=false; stopRec(); try{rec&&rec.stop();}catch(e){}
   setStatus("대기 중",false); releaseWake();
   if(commit && commitPending()){ renderLive(); toast("화면의 발화를 기록했습니다."); }
   renderLive();
@@ -1181,6 +1393,7 @@ function bind(){
     if(e.key===" "||e.key==="Enter"){ e.preventDefault(); pttUp(); }
   });
 
+  $("#playBtn").onclick=function(){ if(recBlob) playBlob(recBlob,$("#playBtn"),"__cur"); };
   $("#editBtn").onclick=function(){ editing?endEdit():startEdit(); };
   $("#speakBtn").onclick=function(){ speakText(); };
   $("#focusBtn").onclick=function(){
@@ -1203,7 +1416,7 @@ function bind(){
     if(editing){ $("#liveEdit").hidden=true; $("#liveBox").hidden=false; editing=false;
       $("#editBtn").textContent="✏️ 수정"; $("#editBtn").classList.remove("primary"); $("#micBtn").disabled=false; }
     stopHoldTimer(); pending=null; finalBuf=""; interimBuf=""; rawBuf="";
-    fixCount=0; voiceUsed=false; editedFlag=false;
+    fixCount=0; voiceUsed=false; editedFlag=false; clearClip();
     try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){} setSpeakState(false);
     renderLive(); fitStage();
     toast(lost?"기록하지 않고 지웠습니다.":"화면을 비웠습니다.");
@@ -1212,6 +1425,19 @@ function bind(){
   $("#fsRange").oninput=function(){ S.livePt=+this.value; applyFs(); saveSet(); };
   $("#modeSel").onchange=function(){ S.mode=this.value; saveSet(); applyMode(); };
   $("#rateSel").onchange=function(){ S.ttsRate=+this.value; saveSet(); };
+  $("#recChip").onclick=function(){
+    if(!recSupported()){ toast("이 브라우저는 녹음을 지원하지 않습니다."); return; }
+    S.recAudio=!S.recAudio; this.setAttribute("aria-pressed",S.recAudio?"true":"false"); saveSet();
+    if(!S.recAudio){ releaseMic(); clearClip(); renderLive(); }
+  };
+  $("#recKeepSel").onchange=function(){ S.recKeepMin=+this.value; saveSet(); purgeAudio(false); };
+  $("#recRateSel").onchange=function(){ S.recBps=+this.value; saveSet(); };
+  $("#wipeAudio").onclick=function(){
+    if(!confirm("보관 중인 음성을 모두 삭제합니다. 글자 기록은 그대로 남습니다.")) return;
+    stopClip(); clearClip(); purgeAudio(true);
+    RECS.forEach(function(r){ delete r.audio; }); saveRecs(); renderLists();
+    toast("음성을 모두 삭제했습니다.");
+  };
   $("#rfsRange").oninput=function(){ S.recPt=+this.value; applyFs(); saveSet(); };
   $$(".presets .btn").forEach(function(b){ b.onclick=function(){ S.livePt=+b.dataset.pt; applyFs(); saveSet(); }; });
 
@@ -1312,7 +1538,7 @@ function bind(){
     if(!RECS.length){toast("삭제할 기록이 없습니다.");return;}
     if(!confirm("기록 "+RECS.length+"건을 모두 삭제합니다.\n되돌릴 수 없습니다. 먼저 내보내기를 하셨나요?")) return;
     if(!confirm("정말 삭제할까요?")) return;
-    RECS=[]; saveRecs(); renderAll(); toast("모두 삭제했습니다.");
+    RECS=[]; saveRecs(); purgeAudio(true); renderAll(); toast("모두 삭제했습니다.");
   };
   document.addEventListener("keydown",function(e){
     if(e.key==="Escape") closePanel();
@@ -1329,6 +1555,16 @@ function init(){
   $("#rateSel").value=String(S.ttsRate);
   $("#wakeChip").setAttribute("aria-pressed",S.wakeLock?"true":"false");
   if(!("speechSynthesis" in window)){ $("#speakBtn").disabled=true; $("#speakBtn").title="이 브라우저는 읽어주기를 지원하지 않습니다."; }
+  if(!recSupported()){
+    S.recAudio=false;
+    $("#recChip").disabled=true; $("#recChip").textContent="녹음 미지원 브라우저";
+  }
+  $("#recChip").setAttribute("aria-pressed",S.recAudio?"true":"false");
+  $("#recKeepSel").value=String(S.recKeepMin);
+  $("#recRateSel").value=String(S.recBps);
+  purgeAudio(false);
+  setInterval(function(){ purgeAudio(false); }, 60000);
+  window.addEventListener("pagehide",releaseMic);
   $("#holdSel").value=String(S.holdSec);
   renderFixList();
   if(!SR){
