@@ -325,15 +325,14 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
             <button class="btn mic" id="recBtn">🔴 목소리 녹음</button>
           </div>
           <div class="actrow">
-            <button class="btn act" id="speakBtn">🔊 읽어주기</button>
-            <button class="btn act" id="compareBtn" disabled>🔁 비교 듣기</button>
-            <button class="btn act" id="drillBtn">🐢 발음 연습</button>
+            <button class="btn act" id="speakBtn" disabled>🔊 내 목소리 듣기</button>
+            <button class="btn act" id="drillBtn" disabled>🐢 천천히 반복</button>
             <button class="btn act" id="editBtn">✏️ 수정</button>
             <button class="btn act primary" id="saveBtn" disabled>💾 기록하기</button>
             <button class="btn act" id="clearBtn" title="기록하지 않고 화면을 지웁니다">🧹 지우기</button>
           </div>
         </div>
-        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 읽어주기는 녹음이 있으면 학생이 말한 그 소리로, 없으면 기계 음성으로 들려줍니다. 비교 듣기는 내 목소리와 기계 음성을 이어서, 발음 연습은 기계 음성만 느리게 반복해 들려줍니다. 목소리 녹음 버튼은 소리가 들어오는 것을 보여 주는 용도이며 저장하지 않습니다.</p>
+        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 목소리 녹음 버튼은 소리가 들어오는 것을 보여 주는 용도이며 저장하지 않습니다.</p>
         </div>
       </div>
     </section>
@@ -481,37 +480,21 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
       <button class="btn sm" data-pt="100">100pt</button>
     </div>
 
-    <label class="f" for="readVoiceSel">읽어주기 목소리</label>
-    <select id="readVoiceSel">
-      <option value="own">학생 목소리 우선 — 녹음이 있으면 그 목소리로 (권장)</option>
-      <option value="tts">항상 기계 음성 — 표준 발음 들려주기</option>
-    </select>
-    <p class="note">녹음이 있으면 학생이 실제로 말한 그 소리를 들려주고, 녹음이 없으면 기계 음성이 글자를 읽습니다. 조음 지도처럼 표준 발음을 들려주셔야 할 때는 항상 기계 음성으로 두십시오.</p>
-
-    <label class="f" for="drillRateSel">발음 연습 속도</label>
+    <label class="f" for="drillRateSel">천천히 재생 속도</label>
     <select id="drillRateSel">
       <option value="0.5">아주 느리게 (0.5배)</option>
       <option value="0.6">많이 느리게 (0.6배)</option>
       <option value="0.7">느리게 (0.7배) — 권장</option>
       <option value="0.8">조금 느리게 (0.8배)</option>
     </select>
-    <label class="f" for="drillNSel">발음 연습 반복 횟수</label>
+    <label class="f" for="drillNSel">천천히 반복 횟수</label>
     <select id="drillNSel">
       <option value="5">5회</option>
       <option value="10">10회 — 기본</option>
       <option value="15">15회</option>
       <option value="20">20회</option>
     </select>
-    <p class="note">발음 연습 버튼은 위 속도로 기계 음성만 반복해 읽습니다. 조음 지도에서 목표 발음을 여러 번 들려줄 때 씁니다. 버튼에 진행 횟수가 표시되고, 다시 누르면 언제든 멈춥니다.</p>
-
-    <label class="f" for="rateSel">읽어주기 속도</label>
-    <select id="rateSel">
-      <option value="0.7">아주 느리게 (0.7배)</option>
-      <option value="0.85">느리게 (0.85배)</option>
-      <option value="1">보통 (1배)</option>
-      <option value="1.15">빠르게 (1.15배)</option>
-    </select>
-    <p class="note">기록 화면과 목록의 읽어주기 버튼에 적용됩니다. 브라우저에 설치된 음성으로 읽어 주며, 인식 언어 설정과 같은 언어의 음성을 우선 사용합니다.</p>
+    <p class="note">천천히 반복 버튼은 학생이 방금 말한 목소리를 위 속도로 늦춰 여러 번 들려줍니다. 목소리의 높낮이는 그대로 두고 속도만 늦추므로 조음을 살피기 좋습니다. 버튼에 진행 횟수가 표시되고, 다시 누르면 언제든 멈춥니다.</p>
 
     <label class="f" for="holdSel">화면 유지 시간</label>
     <select id="holdSel">
@@ -594,12 +577,11 @@ var K_REC="sttlog.records.v1", K_SET="sttlog.settings.v1";
 var S = Object.assign({
   recorder:"", speakers:["학생 1"], speaker:"학생 1",
   livePt:44, recPt:20, theme:"", lang:"ko-KR", autoSave:true, wakeLock:true,
-  holdSec:30, fixes:[], mode:"push", ttsRate:0.9,
-  recAudio:true, recKeepMin:60, recBps:16000, readVoice:"own", drillRate:0.7, drillN:10
+  holdSec:30, fixes:[], mode:"push",
+  recAudio:true, recKeepMin:60, recBps:16000, drillRate:0.7, drillN:10
 }, store.get(K_SET,{}));
 if(typeof S.drillRate!=="number") S.drillRate=0.7;
 if(typeof S.drillN!=="number") S.drillN=10;
-if(["own","tts"].indexOf(S.readVoice)<0) S.readVoice="own";
 if(typeof S.recKeepMin!=="number") S.recKeepMin=60;
 normSpeakers();
 if(typeof S.recBps!=="number") S.recBps=16000;
@@ -624,7 +606,6 @@ function recAllowed(){
   var x=spkOf(S.speaker);
   return !!(S.recAudio && x && x.rec!==false);
 }
-if(typeof S.ttsRate!=="number") S.ttsRate=0.9;
 if(!Array.isArray(S.fixes)) S.fixes=[];
 if(typeof S.holdSec!=="number") S.holdSec=30;
 if(!S.theme){ S.theme = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark":"light"; }
@@ -801,8 +782,8 @@ function recCard(r, full){
     (r.raw?'<div class="rawline"><b>인식 원문</b> · <span class="rawtxt"></span></div>':'')+
     (full?'<div class="rec-act">'+
       '<button class="btn sm" data-a="edit">✏️ 수정</button>'+
-      '<button class="btn sm" data-a="speak">🔊 읽어주기'+((r.audio&&S.readVoice!=="tts")?' · 내 목소리':'')+'</button>'+
-      (r.audio?'<button class="btn sm" data-a="cmp">🔁 비교 듣기</button>':'')+
+      (r.audio?'<button class="btn sm" data-a="speak">🔊 듣기</button>':'')+
+      (r.audio?'<button class="btn sm" data-a="slow">🐢 천천히</button>':'')+
       '<button class="btn sm" data-a="copy">📋 복사</button>'+
       '<button class="btn sm danger" data-a="del">🗑️ 삭제</button>'+
     '</div>':'');
@@ -816,12 +797,12 @@ function recCard(r, full){
     };
     el.querySelector('[data-a="copy"]').onclick=function(){ copyText(r.text); };
     var sb=el.querySelector('[data-a="speak"]');
-    sb.onclick=function(){
+    if(sb) sb.onclick=function(){
       if(playingId===r.id){ stopClip(); return; }
-      readRecord(r, sb);
+      playRecord(r, sb, false);
     };
-    var mb=el.querySelector('[data-a="cmp"]');
-    if(mb) mb.onclick=function(){ compareRecord(r, mb); };
+    var mb=el.querySelector('[data-a="slow"]');
+    if(mb) mb.onclick=function(){ playRecord(r, mb, true); };
     el.querySelector('[data-a="edit"]').onclick=function(){
       var box=el.querySelector(".rec-text");
       if(el.dataset.editing==="1") return;
@@ -1218,12 +1199,14 @@ function stopClip(){
   restoreBtn($("#speakBtn"));
   $$(".btn.playing").forEach(restoreBtn);
 }
-function playBlob(blob, btn, id, after){
+function playBlob(blob, btn, id, after, rate){
   if(playingId===id && !after){ stopClip(); return; }
   stopClip();
-  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){} setSpeakState(false);
   var url=URL.createObjectURL(blob);
   player=new Audio(url); playingId=id;
+  /* 목소리 높낮이는 유지하고 속도만 바꾼다 */
+  try{ player.preservesPitch=true; player.mozPreservesPitch=true; player.webkitPreservesPitch=true; }catch(e){}
+  try{ player.playbackRate=rate||1; }catch(e){}
   if(btn){ if(!btn.dataset.label) btn.dataset.label=btn.textContent;
            btn.classList.add("playing"); btn.textContent="⏹️ 멈추기"; }
   var done=function(){
@@ -1235,161 +1218,69 @@ function playBlob(blob, btn, id, after){
   player.play().catch(function(){ toast("재생하지 못했습니다."); stopClip(); });
 }
 
-/* 기계 음성 한 번 읽기 (속도·종료 콜백 지정 가능) */
-function ttsSpeak(text, rate, onDone){
-  if(!("speechSynthesis" in window)){ onDone&&onDone(); return false; }
-  var txt=(text||"").trim();
-  if(!txt){ onDone&&onDone(); return false; }
-  var u=new SpeechSynthesisUtterance(txt);
-  u.lang=S.lang; u.rate=rate||(+S.ttsRate||1); u.pitch=1;
-  var v=pickVoice(S.lang); if(v) u.voice=v;
-  u.onend=function(){ onDone&&onDone(); };
-  u.onerror=function(){ onDone&&onDone(); };
-  try{ window.speechSynthesis.speak(u); return true; }
-  catch(e){ onDone&&onDone(); return false; }
-}
-
-/* 모든 소리 정지 */
+/* ===== 모든 소리 정지 ===== */
 function stopAllAudio(){
-  drillOn=false; cmpOn=false;
-  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+  slowOn=false;
+  if(slowT){ clearTimeout(slowT); slowT=null; }
   stopClip(); setSpeakState(false);
-  restoreBtn($("#compareBtn")); restoreBtn($("#drillBtn"));
+  restoreBtn($("#drillBtn"));
 }
-function anyPlaying(){
-  var ss=window.speechSynthesis;
-  return !!(playingId || drillOn || cmpOn || (ss && (ss.speaking||ss.pending)));
-}
+function anyPlaying(){ return !!(playingId || slowOn); }
 
-/* 비교 듣기: 학생 목소리를 들려준 뒤 이어서 기계 음성으로 같은 문장을 읽는다 */
-var cmpOn=false;
-function comparePlay(){
-  var b=$("#compareBtn");
+/* ===== 내 목소리 재생 (기계 음성은 쓰지 않는다) ===== */
+function playLabel(){ return "🔊 내 목소리 듣기"; }
+function setSpeakState(on){
+  var b=$("#speakBtn"); if(!b) return;
+  b.classList.toggle("playing",!!on);
+  b.textContent = on ? "⏹️ 멈추기" : playLabel();
+}
+/* 화면의 발화를 학생 목소리로 한 번 들려준다 */
+function listenBack(){
   if(anyPlaying()){ stopAllAudio(); return; }
-  if(!recBlob){ toast("비교할 녹음이 없습니다."); return; }
-  var txt=curText();
-  if(!txt){ toast("읽을 내용이 없습니다."); return; }
-  if(wantListen){ endListen(false); }
-  cmpOn=true;
-  playBlob(recBlob, null, "__cmp", function(){
-    if(!cmpOn) return;
-    b.textContent="⏹️ 기계 음성…";
-    ttsSpeak(txt, +S.ttsRate||1, function(){ cmpOn=false; restoreBtn(b); });
-  });
-  b.dataset.label="🔁 비교 듣기";
-  b.classList.add("playing"); b.textContent="⏹️ 내 목소리…";
+  if(!recBlob){ toast("녹음된 목소리가 없습니다."); return; }
+  var b=$("#speakBtn");
+  b.dataset.label=playLabel();
+  playBlob(recBlob, b, "__cur", null, 1);
 }
-
-/* 목록의 한 기록을 비교해 듣기: 학생 목소리 → 기계 음성 */
-function compareRecord(r, btn){
+/* 학생 목소리를 느린 속도로 여러 번 들려준다 */
+var slowOn=false, slowN=0, slowT=null;
+function slowRepeat(blob, btn, label){
+  var max=+S.drillN||10, rate=+S.drillRate||0.7;
+  slowOn=true; slowN=0;
+  btn.dataset.label=label; btn.classList.add("playing");
+  var step=function(){
+    if(!slowOn) return;
+    slowN++;
+    playBlob(blob, null, "__slow", function(){
+      if(!slowOn) return;
+      if(slowN>=max){ slowOn=false; restoreBtn(btn); toast(max+"회 반복했습니다."); return; }
+      slowT=setTimeout(step, 700);
+    }, rate);
+    btn.classList.add("playing");
+    btn.textContent="⏹️ 멈추기 ("+slowN+"/"+max+"회)";
+  };
+  step();
+}
+function slowToggle(){
+  var b=$("#drillBtn");
+  if(slowOn || anyPlaying()){ stopAllAudio(); return; }
+  if(!recBlob){ toast("녹음된 목소리가 없습니다."); return; }
+  if(wantListen){ endListen(false); }
+  slowRepeat(recBlob, b, "🐢 천천히 반복");
+}
+/* 목록의 한 기록을 재생한다 */
+function playRecord(r, btn, slow){
   if(anyPlaying()){ stopAllAudio(); return; }
   audioGet(r.id,function(v){
     if(!v || !v.blob){
       delete r.audio; saveRecs(); renderLists();
       toast("보관 시간이 지나 음성이 삭제되었습니다."); return;
     }
-    cmpOn=true;
-    playBlob(v.blob, null, "cmp_"+r.id, function(){
-      if(!cmpOn) return;
-      btn.textContent="⏹️ 기계 음성…";
-      ttsSpeak(r.text, +S.ttsRate||1, function(){ cmpOn=false; restoreBtn(btn); });
-    });
-    btn.dataset.label="🔁 비교 듣기";
-    btn.classList.add("playing"); btn.textContent="⏹️ 내 목소리…";
+    if(slow) slowRepeat(v.blob, btn, "🐢 천천히");
+    else { btn.dataset.label="🔊 듣기"; playBlob(v.blob, btn, r.id, null, 1); }
   });
 }
 
-/* 발음 연습: 기계 음성만 느린 속도로 반복해서 읽는다 */
-var drillOn=false, drillN=0, drillT=null;
-function drillToggle(){
-  var b=$("#drillBtn");
-  if(drillOn || anyPlaying()){ stopAllAudio(); if(drillT){clearTimeout(drillT);drillT=null;} return; }
-  var txt=curText();
-  if(!txt){ toast("읽을 내용이 없습니다."); return; }
-  if(!("speechSynthesis" in window)){ toast("이 브라우저는 기계 음성을 지원하지 않습니다."); return; }
-  if(wantListen){ endListen(false); }
-  b.dataset.label="🐢 발음 연습";
-  drillOn=true; drillN=0;
-  b.classList.add("playing");
-  var step=function(){
-    if(!drillOn) return;
-    drillN++;
-    b.textContent="⏹️ 멈추기 ("+drillN+"/"+(+S.drillN||10)+"회)";
-    ttsSpeak(txt, +S.drillRate||0.7, function(){
-      if(!drillOn) return;
-      var max=+S.drillN||10;
-      if(drillN>=max){ drillOn=false; restoreBtn(b); toast(max+"회 반복했습니다."); return; }
-      drillT=setTimeout(step, 900);
-    });
-  };
-  step();
-}
-
-/* ===== 읽어주기 (TTS) ===== */
-var ttsVoices=[];
-function loadVoices(){ try{ ttsVoices=window.speechSynthesis.getVoices()||[]; }catch(e){ ttsVoices=[]; } }
-if("speechSynthesis" in window){
-  loadVoices();
-  try{ window.speechSynthesis.onvoiceschanged=loadVoices; }catch(e){}
-}
-function pickVoice(lang){
-  if(!ttsVoices.length) loadVoices();
-  var base=(lang||"ko-KR").split("-")[0];
-  var exact=ttsVoices.filter(function(v){return v.lang&&v.lang.replace("_","-")===lang;});
-  if(exact.length) return exact[0];
-  var loose=ttsVoices.filter(function(v){return v.lang&&v.lang.toLowerCase().indexOf(base)===0;});
-  return loose.length?loose[0]:null;
-}
-function speakLabel(){
-  return (S.readVoice!=="tts" && recBlob) ? "🔊 읽어주기 · 내 목소리" : "🔊 읽어주기 · 기계 음성";
-}
-function setSpeakState(on){
-  var b=$("#speakBtn"); if(!b) return;
-  b.classList.toggle("speaking",!!on);
-  b.textContent = on ? "⏹️ 멈추기" : speakLabel();
-}
-/* 읽어주기: 녹음된 학생 목소리가 있으면 그 소리로, 없으면 기계 음성으로 */
-function readBack(){
-  var b=$("#speakBtn");
-  if(anyPlaying()){ stopAllAudio(); return; }
-  if(S.readVoice!=="tts" && recBlob){
-    b.dataset.label=speakLabel();
-    playBlob(recBlob, b, "__cur");
-    if(editedFlag) toast("고치기 전, 학생이 실제로 말한 소리입니다.");
-  } else {
-    speakText();
-  }
-}
-function readRecord(r, btn){
-  if(S.readVoice!=="tts" && r.audio){
-    audioGet(r.id,function(v){
-      if(v && v.blob){
-        btn.dataset.label="🔊 읽어주기";
-        playBlob(v.blob, btn, r.id);
-        if(r.edited) toast("고치기 전, 학생이 실제로 말한 소리입니다.");
-      } else {
-        delete r.audio; saveRecs(); renderLists(); speakText(r.text);
-      }
-    });
-  } else speakText(r.text);
-}
-function speakText(t){
-  if(!("speechSynthesis" in window)){ toast("이 브라우저는 읽어주기를 지원하지 않습니다."); return; }
-  var ss=window.speechSynthesis;
-  if(ss.speaking||ss.pending){ ss.cancel(); setSpeakState(false); if(t===undefined) return; }
-  var txt=(t!==undefined?t:curText()).trim();
-  if(!txt){ toast("읽을 내용이 없습니다."); return; }
-  if(wantListen){ wantListen=false; ptt=false; try{rec&&rec.stop();}catch(e){} setStatus("대기 중",false); }
-  var u=new SpeechSynthesisUtterance(txt);
-  u.lang=S.lang; u.rate=+S.ttsRate||1; u.pitch=1;
-  var v=pickVoice(S.lang); if(v) u.voice=v;
-  if(t===undefined){
-    u.onend=function(){ setSpeakState(false); };
-    u.onerror=function(){ setSpeakState(false); };
-    setSpeakState(true);
-  }
-  try{ ss.speak(u); }catch(e){ setSpeakState(false); toast("읽어주기를 시작하지 못했습니다."); }
-}
 function curText(){
   if(editing) return $("#liveEdit").value;
   var held=(pending && S.mode==="hold" && !pending.committed)?pending.text:"";
@@ -1536,23 +1427,17 @@ function renderLive(){
   renderHoldPill();
   $("#saveBtn").disabled = !((pending && !pending.committed) || finalBuf.trim() || interimBuf.trim());
   renderRecBtn();
-  var cb=$("#compareBtn");
-  if(cb && !cb.classList.contains("playing")){
-    cb.disabled=!(recBlob && curText());
-    cb.title=recBlob?"학생 목소리를 들려준 뒤 이어서 기계 음성으로 같은 문장을 읽습니다"
-                    :"녹음이 있어야 비교할 수 있습니다";
-  }
   var db=$("#drillBtn");
   if(db && !db.classList.contains("playing")){
-    db.disabled=!curText();
-    db.title="화면의 글자를 "+(+S.drillRate||0.7)+"배 속도로 "+(+S.drillN||10)+"회까지 반복해 읽습니다";
+    db.disabled=!recBlob;
+    db.title=recBlob?("방금 말한 목소리를 "+(+S.drillRate||0.7)+"배 속도로 "+(+S.drillN||10)+"회까지 반복해 들려줍니다")
+                    :"녹음된 목소리가 없습니다";
   }
   var sp=$("#speakBtn");
-  if(sp && !sp.classList.contains("playing") && !sp.classList.contains("speaking")){
-    sp.textContent=speakLabel();
-    sp.title=(S.readVoice!=="tts" && recBlob)
-      ? "학생이 방금 말한 소리를 그대로 들려줍니다"
-      : "화면의 글자를 기계 음성으로 읽어 줍니다";
+  if(sp && !sp.classList.contains("playing")){
+    sp.disabled=!recBlob;
+    sp.textContent=playLabel();
+    sp.title=recBlob?"학생이 방금 말한 소리를 그대로 들려줍니다":"녹음된 목소리가 없습니다";
   }
 }
 function setStatus(t,on){
@@ -1625,7 +1510,7 @@ function start(){
 function beginListen(){
   if(!SR){ toast("이 브라우저는 음성 인식을 지원하지 않습니다."); return false; }
   if(editing){ toast("수정을 마친 뒤 녹음하세요."); return false; }
-  try{ window.speechSynthesis && window.speechSynthesis.cancel(); setSpeakState(false); }catch(e){}
+  stopAllAudio();
   clearClip();
   wantListen=true; restartAt=Date.now(); start(); requestWake();
   startRec();
@@ -1761,9 +1646,8 @@ function bind(){
   });
 
   $("#editBtn").onclick=function(){ editing?endEdit():startEdit(); };
-  $("#speakBtn").onclick=readBack;
-  $("#compareBtn").onclick=comparePlay;
-  $("#drillBtn").onclick=drillToggle;
+  $("#speakBtn").onclick=listenBack;
+  $("#drillBtn").onclick=slowToggle;
   $("#focusBtn").onclick=function(){
     var a=$("#app"), on=!a.classList.contains("focus");
     a.classList.toggle("focus",on);
@@ -1785,15 +1669,12 @@ function bind(){
       $("#editBtn").textContent="✏️ 수정"; $("#editBtn").classList.remove("primary"); $("#micBtn").disabled=false; }
     stopHoldTimer(); pending=null; finalBuf=""; interimBuf=""; rawBuf="";
     fixCount=0; voiceUsed=false; editedFlag=false; stopAllAudio(); clearClip();
-    try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){} setSpeakState(false);
     renderLive(); fitStage();
     toast(lost?"기록하지 않고 지웠습니다.":"화면을 비웠습니다.");
   };
   $("#saveBtn").onclick=saveCurrent;
   $("#fsRange").oninput=function(){ S.livePt=+this.value; applyFs(); saveSet(); };
   $("#modeSel").onchange=function(){ S.mode=this.value; saveSet(); applyMode(); };
-  $("#rateSel").onchange=function(){ S.ttsRate=+this.value; saveSet(); };
-  $("#readVoiceSel").onchange=function(){ S.readVoice=this.value; saveSet(); renderLive(); renderLists(); };
   $("#drillRateSel").onchange=function(){ S.drillRate=+this.value; saveSet(); renderLive(); };
   $("#drillNSel").onchange=function(){ S.drillN=+this.value; saveSet(); renderLive(); };
   $("#recChip").onclick=function(){
@@ -1929,12 +1810,9 @@ function init(){
   $("#recorderName").value=S.recorder;
   $("#langSel").value=S.lang;
   $("#modeSel").value=S.mode;
-  $("#rateSel").value=String(S.ttsRate);
-  $("#readVoiceSel").value=S.readVoice;
   $("#drillRateSel").value=String(S.drillRate);
   $("#drillNSel").value=String(S.drillN);
   $("#wakeChip").setAttribute("aria-pressed",S.wakeLock?"true":"false");
-  if(!("speechSynthesis" in window)){ $("#speakBtn").title="이 브라우저는 기계 음성을 지원하지 않습니다. 녹음이 있는 경우에만 소리가 납니다."; }
   if(!recSupported()){
     S.recAudio=false;
     $("#recChip").disabled=true; $("#recChip").textContent="녹음 미지원 브라우저";
