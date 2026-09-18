@@ -101,6 +101,17 @@
 .reclive .meter i{display:block;height:100%;width:0;background:var(--live);
   border-radius:999px;transition:width .08s linear}
 
+/* 합성(AI 복제) 음성이 나오는 중임을 분명히 알리는 표시 */
+.synlive{display:flex;align-items:center;gap:10px;border:3px dashed var(--accent);
+  border-radius:12px;padding:8px 12px;background:var(--surface);flex-wrap:wrap}
+.synlive[hidden]{display:none}
+.synlive .sdot{width:16px;height:16px;border-radius:4px;background:var(--accent);flex:none;
+  animation:p 1s infinite}
+.synlive .stxt{font-weight:800;color:var(--accent);font-size:1.05rem;white-space:nowrap}
+.synlive .snote{font-size:.8rem;color:var(--text2);flex:1 1 160px;min-width:0}
+.synbadge{display:inline-block;border:2px solid var(--accent);color:var(--accent);
+  border-radius:999px;padding:1px 8px;font-size:.72rem;font-weight:700;margin-left:6px}
+
 }
 @media(max-width:430px){
   .stagebar .chip{padding:8px 12px;min-height:40px;font-size:.9rem}
@@ -265,7 +276,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
   #recBtn{min-height:54px;font-size:.92rem}
   .act{min-height:44px;font-size:.86rem}
   #micNote{display:none}
-
+}
 </style>
 <!--/AR-->
 </head>
@@ -312,6 +323,11 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
             <span class="rtxt">녹음 중</span>
             <span class="meter"><i id="meterFill"></i></span>
           </div>
+          <div class="synlive" id="synLive" hidden aria-hidden="true">
+            <span class="sdot"></span>
+            <span class="stxt">AI 합성 발음 모델</span>
+            <span class="snote">학생 본인 목소리를 복제해 만든 소리입니다. 학생이 실제로 낸 소리가 아니며 기록에 저장되지 않습니다.</span>
+          </div>
           <div class="livebox" id="liveBox" aria-live="polite" aria-atomic="false">
             <span class="ph">버튼을 누르고 있는 동안 말하면<br>이 자리에 글자가 나타납니다.</span>
           </div>
@@ -327,12 +343,13 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
           <div class="actrow">
             <button class="btn act" id="speakBtn" disabled>🔊 내 목소리 듣기</button>
             <button class="btn act" id="drillBtn" disabled>🐢 천천히 반복</button>
+            <button class="btn act" id="synBtn" disabled hidden>🗣️ 바른 발음 듣기</button>
             <button class="btn act" id="editBtn">✏️ 수정</button>
             <button class="btn act primary" id="saveBtn" disabled>💾 기록하기</button>
             <button class="btn act" id="clearBtn" title="기록하지 않고 화면을 지웁니다">🧹 지우기</button>
           </div>
         </div>
-        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 목소리 녹음 버튼은 소리가 들어오는 것을 보여 주는 용도이며 저장하지 않습니다.</p>
+        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 바른 발음 듣기는 학생 본인 목소리를 복제해 만든 발음 모델이며, 화면에 합성이라고 표시되고 기록에는 저장되지 않습니다. 목소리 녹음 버튼은 소리가 들어오는 것을 보여 주는 용도이며 저장하지 않습니다.</p>
         </div>
       </div>
     </section>
@@ -540,6 +557,31 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     <p class="note">학생의 음성은 개인정보입니다. 화자는 실명 대신 익명 코드로 등록하시고, 연구 자료로 쓰실 경우 보호자 동의와 기관생명윤리위원회 심의를 먼저 받으십시오.</p>
 
     <hr class="hr">
+    <h2>바른 발음 듣기 <span class="sub">학생 본인 목소리로 만든 발음 모델</span></h2>
+    <p class="note">학생이 자기 목소리로 바른 발음을 듣도록 하는 기능입니다(자기 모델링). 합성은 학교 밖 서버에서 이루어지므로, 보호자 서면 동의를 받은 학생에게만 사용하십시오. 만들어진 소리는 화면에 합성으로 표시되고 기록에는 저장되지 않으며, 이 기기에도 남지 않습니다.</p>
+
+    <label class="f" for="ttsUrl">합성 서버 주소</label>
+    <input type="url" id="ttsUrl" placeholder="예: https://speech-log-voice.<계정>.workers.dev" autocomplete="off">
+
+    <label class="f" for="ttsToken">공유 암호</label>
+    <input type="password" id="ttsToken" placeholder="서버에 설정한 APP_TOKEN" autocomplete="off">
+
+    <div class="row-end" style="margin-top:10px">
+      <button class="btn sm" id="ttsTest">연결 확인</button>
+    </div>
+    <p class="note" id="ttsInfo">합성 서버 주소를 넣지 않으면 이 기능은 화면에 나타나지 않습니다.</p>
+
+    <label class="f" for="synModeSel">재생 방식</label>
+    <select id="synModeSel">
+      <option value="model">바른 발음만 들려주기</option>
+      <option value="compare">바른 발음 → 학생이 방금 낸 소리 (비교 듣기)</option>
+    </select>
+
+    <h2 style="font-size:.95rem;margin-top:16px">학생별 목소리 등록</h2>
+    <p class="note">보관 중인 그 학생의 녹음에서 가장 긴 것 최대 5개를 참조로 보냅니다. 합계 30초 이상이면 실용적이고, 1분 이상이면 더 또렷합니다. 등록하면 서버에 목소리가 만들어지고, 이 기기에는 번호만 저장됩니다. 사용을 마치면 반드시 해제하십시오.</p>
+    <div id="voiceManage" style="margin-top:10px"></div>
+
+    <hr class="hr">
     <h2>자주 틀리는 말 교정</h2>
     <p class="note">특정 낱말이 반복해서 잘못 인식되면 규칙을 등록하십시오. 인식된 문장에서 자동으로 바꿔 줍니다. 바뀌기 전 원문도 함께 보관되어 통계 탭에서 실제 인식률을 분석할 수 있습니다.</p>
     <div class="grid2" style="margin-top:10px">
@@ -578,7 +620,8 @@ var S = Object.assign({
   recorder:"", speakers:["학생 1"], speaker:"학생 1",
   livePt:44, recPt:20, theme:"", lang:"ko-KR", autoSave:true, wakeLock:true,
   holdSec:30, fixes:[], mode:"push",
-  recAudio:true, recKeepMin:60, recBps:16000, drillRate:0.7, drillN:10
+  recAudio:true, recKeepMin:60, recBps:16000, drillRate:0.7, drillN:10,
+  ttsUrl:"", ttsToken:"", synMode:"model"
 }, store.get(K_SET,{}));
 if(typeof S.drillRate!=="number") S.drillRate=0.7;
 if(typeof S.drillN!=="number") S.drillN=10;
@@ -590,8 +633,8 @@ if(["push","hold","cont"].indexOf(S.mode)<0) S.mode="push";
 function normSpeakers(){
   var arr=Array.isArray(S.speakers)?S.speakers:[];
   S.speakers=arr.map(function(x){
-    return (typeof x==="string") ? {name:x, rec:true}
-                                 : {name:(x&&x.name)||"학생", rec:!(x&&x.rec===false)};
+    return (typeof x==="string") ? {name:x, rec:true, voice:null}
+                                 : {name:(x&&x.name)||"학생", rec:!(x&&x.rec===false), voice:(x&&x.voice)||null};
   }).filter(function(x){return !!x.name;});
   if(!S.speakers.length) S.speakers=[{name:"학생 1", rec:true}];
   var has=S.speakers.some(function(x){return x.name===S.speaker;});
@@ -703,6 +746,7 @@ function renderSpeakers(){
     var o=document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o);
   });
   sel.value=cur;
+  if(typeof renderVoices==="function") renderVoices();
 }
 function renderFilters(){ renderSpeakers(); }
 
@@ -1222,10 +1266,13 @@ function playBlob(blob, btn, id, after, rate){
 function stopAllAudio(){
   slowOn=false;
   if(slowT){ clearTimeout(slowT); slowT=null; }
+  synOn=false;
+  if(synT){ clearTimeout(synT); synT=null; }
   stopClip(); setSpeakState(false);
   restoreBtn($("#drillBtn"));
+  if(typeof showSynLive==="function"){ showSynLive(false); setSynBusy(false); }
 }
-function anyPlaying(){ return !!(playingId || slowOn); }
+function anyPlaying(){ return !!(playingId || slowOn || synOn); }
 
 /* ===== 내 목소리 재생 (기계 음성은 쓰지 않는다) ===== */
 function playLabel(){ return "🔊 내 목소리 듣기"; }
@@ -1285,6 +1332,169 @@ function curText(){
   if(editing) return $("#liveEdit").value;
   var held=(pending && S.mode==="hold" && !pending.committed)?pending.text:"";
   return [held,finalBuf,interimBuf].filter(Boolean).join(" ").trim();
+}
+
+
+/* ===== 발음 모델(음성 복제) =====
+   합성은 Cloudflare Workers 중계를 거쳐 이루어진다.
+   결과는 메모리에만 두고 기록·IndexedDB·내보내기에 넣지 않는다. */
+var SYN={}, synBlob=null, synOn=false, synT=null;
+
+function ttsBase(){ return String(S.ttsUrl||"").trim().replace(/\/+$/,""); }
+function ttsOn(){ return !!ttsBase(); }
+function ttsHead(extra){
+  var h = extra||{};
+  if(S.ttsToken) h["X-App-Token"]=S.ttsToken;
+  return h;
+}
+function curVoice(){ var x=spkOf(S.speaker); return (x && x.voice && x.voice.id) ? x.voice.id : ""; }
+
+function showSynLive(on){
+  var el=$("#synLive"); if(!el) return;
+  el.hidden=!on; el.setAttribute("aria-hidden", on?"false":"true");
+}
+function setSynBusy(on,label){
+  var b=$("#synBtn"); if(!b) return;
+  if(!b.dataset.label) b.dataset.label="🗣️ 바른 발음 듣기";
+  b.textContent = on ? (label||"⏹️ 멈추기") : b.dataset.label;
+  b.classList.toggle("playing",!!on);
+}
+
+/* 서버 연결 확인 */
+function ttsTest(){
+  var base=ttsBase();
+  var el=$("#ttsInfo");
+  if(!base){ el.textContent="합성 서버 주소를 먼저 입력하십시오."; return; }
+  el.textContent="확인 중…";
+  fetch(base+"/health",{headers:ttsHead()}).then(function(r){ return r.json(); }).then(function(d){
+    if(d && d.ok){
+      el.textContent="연결됨 · 제공자 "+(d.provider||"?")+" · 키 "+(d.keyed?"설정됨":"없음")+
+        " · 1회 최대 "+(d.maxChars||"?")+"자";
+      if(!d.keyed) el.textContent += " · 서버에 API 키가 없어 합성이 되지 않습니다.";
+    } else el.textContent="응답이 올바르지 않습니다.";
+  }).catch(function(){ el.textContent="연결하지 못했습니다. 주소와 인터넷 상태를 확인하십시오."; });
+}
+
+/* 해당 화자의 보관 음성 중 긴 것부터 모아 온다 */
+function refClips(name, cb){
+  var list=RECS.filter(function(r){ return r.speaker===name && r.audio; })
+               .sort(function(a,b){ return (b.audio.sec||0)-(a.audio.sec||0); })
+               .slice(0,5);
+  var out=[], i=0;
+  (function next(){
+    if(i>=list.length) return cb(out);
+    audioGet(list[i].id, function(v){
+      if(v && v.blob) out.push(v.blob);
+      i++; next();
+    });
+  })();
+}
+
+/* 목소리 등록 */
+function voiceRegister(sp, btn){
+  var base=ttsBase();
+  if(!base){ toast("설정에서 합성 서버 주소를 먼저 넣으십시오."); return; }
+  refClips(sp.name, function(blobs){
+    if(!blobs.length){ toast(sp.name+" 학생의 보관 음성이 없습니다. 먼저 말하고 기록하십시오."); return; }
+    var fd=new FormData();
+    fd.append("name","sttlog-"+sp.name);
+    blobs.forEach(function(b){ fd.append("file", b, "ref.webm"); });
+    btn.disabled=true; btn.textContent="등록 중…";
+    fetch(base+"/voice",{method:"POST",headers:ttsHead(),body:fd})
+      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,d:d}; }); })
+      .then(function(x){
+        if(!x.ok || !x.d.voiceId){ toast("등록하지 못했습니다. "+((x.d&&x.d.error)||"")); return; }
+        sp.voice={ id:x.d.voiceId, at:Date.now() };
+        saveSet(); renderVoices(); renderLive();
+        toast(sp.name+" 목소리를 등록했습니다.");
+      })
+      .catch(function(){ toast("등록 중 통신 오류가 발생했습니다."); })
+      .then(function(){ btn.disabled=false; renderVoices(); });
+  });
+}
+
+/* 목소리 해제 */
+function voiceRelease(sp, btn){
+  var base=ttsBase(), id=sp.voice&&sp.voice.id;
+  if(!id) return;
+  if(!confirm(sp.name+" 학생의 등록된 목소리를 서버에서 삭제합니다.")) return;
+  btn.disabled=true; btn.textContent="해제 중…";
+  var done=function(){
+    sp.voice=null; saveSet(); renderVoices(); renderLive();
+    Object.keys(SYN).forEach(function(k){ if(k.indexOf(id+"\n")===0) delete SYN[k]; });
+    toast("해제했습니다.");
+  };
+  if(!base){ done(); return; }
+  fetch(base+"/voice?id="+encodeURIComponent(id),{method:"DELETE",headers:ttsHead()})
+    .then(done).catch(done);
+}
+
+function renderVoices(){
+  var m=$("#voiceManage"); if(!m) return;
+  m.innerHTML="";
+  S.speakers.forEach(function(sp){
+    var row=document.createElement("div"); row.className="fixrow";
+    var left=document.createElement("div");
+    var reg=!!(sp.voice && sp.voice.id);
+    left.innerHTML='<div class="ft"></div><div class="fh"></div>';
+    left.querySelector(".ft").textContent=sp.name;
+    left.querySelector(".fh").textContent= reg
+      ? "등록됨 · "+new Date(sp.voice.at||Date.now()).toLocaleString("ko-KR")
+      : "등록 안 됨";
+    var b=document.createElement("button");
+    b.className="btn sm"+(reg?" danger":" primary");
+    b.textContent=reg?"해제":"목소리 등록";
+    b.onclick=function(){ reg ? voiceRelease(sp,b) : voiceRegister(sp,b); };
+    row.appendChild(left); row.appendChild(b); m.appendChild(row);
+  });
+}
+
+/* 합성 요청 (같은 목소리·같은 문장은 한 번만 요청한다) */
+function synth(voiceId, text, cb){
+  var key=voiceId+"\n"+text;
+  if(SYN[key]) return cb(null, SYN[key]);
+  fetch(ttsBase()+"/speak",{
+    method:"POST",
+    headers:ttsHead({"Content-Type":"application/json"}),
+    body:JSON.stringify({voiceId:voiceId, text:text})
+  }).then(function(r){
+    if(!r.ok) return r.json().catch(function(){return {};}).then(function(d){
+      throw new Error((d&&d.error)||("오류 "+r.status));
+    });
+    return r.blob();
+  }).then(function(b){ SYN[key]=b; cb(null,b); })
+    .catch(function(e){ cb(e); });
+}
+
+/* 바른 발음 듣기 */
+function synToggle(){
+  if(synOn || anyPlaying()){ stopAllAudio(); return; }
+  if(!ttsOn()){ toast("설정에서 합성 서버 주소를 넣으십시오."); return; }
+  var vid=curVoice();
+  if(!vid){ toast(S.speaker+" 학생의 목소리가 등록되지 않았습니다. 설정에서 등록하십시오."); return; }
+  if(editing) endEdit();
+  if(wantListen){ endListen(false); }
+  var text=curText().trim();
+  if(!text){ toast("읽을 내용이 없습니다."); return; }
+
+  synOn=true; setSynBusy(true,"⏳ 만드는 중…"); showSynLive(true);
+  synth(vid, text, function(err, blob){
+    if(!synOn) return;
+    if(err){ synOn=false; setSynBusy(false); showSynLive(false); toast("만들지 못했습니다. "+err.message); return; }
+    synBlob=blob;
+    setSynBusy(true,"⏹️ 멈추기");
+    playBlob(blob, null, "__syn", function(){
+      if(!synOn){ showSynLive(false); return; }
+      if(S.synMode==="compare" && recBlob){
+        showSynLive(false);
+        setSynBusy(true,"⏹️ 멈추기 (내 목소리)");
+        synT=setTimeout(function(){
+          if(!synOn){ return; }
+          playBlob(recBlob, null, "__syncmp", function(){ synOn=false; setSynBusy(false); }, 1);
+        }, 700);
+      } else { synOn=false; setSynBusy(false); showSynLive(false); }
+    }, 1);
+  });
 }
 
 /* ===== 기록 전 수정 ===== */
@@ -1438,6 +1648,19 @@ function renderLive(){
     sp.disabled=!recBlob;
     sp.textContent=playLabel();
     sp.title=recBlob?"학생이 방금 말한 소리를 그대로 들려줍니다":"녹음된 목소리가 없습니다";
+  }
+  var sy=$("#synBtn");
+  if(sy){
+    sy.hidden=!ttsOn();
+    if(!sy.classList.contains("playing")){
+      var vid=curVoice(), txt=curText().trim();
+      sy.disabled=!(ttsOn() && vid && txt);
+      sy.textContent="🗣️ 바른 발음 듣기";
+      sy.title = !ttsOn() ? "설정에서 합성 서버 주소를 넣으십시오"
+               : !vid ? (S.speaker+" 학생의 목소리가 등록되지 않았습니다")
+               : !txt ? "읽을 내용이 없습니다"
+               : "화면의 글을 학생 본인 목소리로 바르게 읽어 줍니다 (합성)";
+    }
   }
 }
 function setStatus(t,on){
@@ -1648,6 +1871,7 @@ function bind(){
   $("#editBtn").onclick=function(){ editing?endEdit():startEdit(); };
   $("#speakBtn").onclick=listenBack;
   $("#drillBtn").onclick=slowToggle;
+  $("#synBtn").onclick=synToggle;
   $("#focusBtn").onclick=function(){
     var a=$("#app"), on=!a.classList.contains("focus");
     a.classList.toggle("focus",on);
@@ -1683,11 +1907,19 @@ function bind(){
     if(!S.recAudio){ releaseMic(); clearClip(); }
     renderSpeakers(); renderLive();
   };
+  $("#ttsUrl").onchange=function(){
+    S.ttsUrl=this.value.trim(); saveSet(); renderLive();
+    $("#ttsInfo").textContent = S.ttsUrl ? "저장했습니다. 연결 확인을 눌러 보십시오." : "합성 서버 주소를 넣지 않으면 이 기능은 화면에 나타나지 않습니다.";
+  };
+  $("#ttsToken").onchange=function(){ S.ttsToken=this.value; saveSet(); };
+  $("#ttsTest").onclick=ttsTest;
+  $("#synModeSel").onchange=function(){ S.synMode=this.value; saveSet(); };
   $("#recKeepSel").onchange=function(){ S.recKeepMin=+this.value; saveSet(); purgeAudio(false); };
   $("#recRateSel").onchange=function(){ S.recBps=+this.value; saveSet(); };
   $("#wipeAudio").onclick=function(){
     if(!confirm("보관 중인 음성을 모두 삭제합니다. 글자 기록은 그대로 남습니다.")) return;
-    stopClip(); clearClip(); purgeAudio(true);
+    stopAllAudio(); clearClip(); purgeAudio(true);
+    SYN={}; synBlob=null;
     RECS.forEach(function(r){ delete r.audio; }); saveRecs(); renderLists();
     toast("음성을 모두 삭제했습니다.");
   };
@@ -1820,6 +2052,10 @@ function init(){
   $("#recChip").setAttribute("aria-pressed",S.recAudio?"true":"false");
   $("#recKeepSel").value=String(S.recKeepMin);
   $("#recRateSel").value=String(S.recBps);
+  $("#ttsUrl").value=S.ttsUrl||"";
+  $("#ttsToken").value=S.ttsToken||"";
+  $("#synModeSel").value=S.synMode||"model";
+  renderVoices();
   renderRecBtn();
   purgeAudio(false);
   setInterval(function(){ purgeAudio(false); }, 60000);
