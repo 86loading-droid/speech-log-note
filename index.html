@@ -123,6 +123,17 @@
 .wkeep{border:2px solid var(--live);color:var(--live);background:var(--surface);
   border-radius:10px;padding:10px 12px;font-size:.82rem;font-weight:700;line-height:1.5;margin-top:10px}
 
+/* 이어 읽기: 어느 낱말이 소리로 나오는지 보여 준다 */
+.chainbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border:3px solid var(--ok);
+  border-radius:12px;padding:8px 12px;background:var(--surface)}
+.chainbar[hidden]{display:none}
+.chainbar .clab{font-weight:800;color:var(--ok);font-size:.9rem;white-space:nowrap}
+.chainbar .cw{border:2px solid var(--line);border-radius:8px;padding:4px 10px;font-weight:700;font-size:.9rem}
+.chainbar .cw.has{border-color:var(--ok);color:var(--ok)}
+.chainbar .cw.no{opacity:.45;text-decoration:line-through}
+.chainbar .cw.now{background:var(--ok);color:#fff;border-color:var(--ok)}
+.chainbar .cnote{font-size:.76rem;color:var(--text2);flex:1 1 140px;min-width:0}
+
 }
 @media(max-width:430px){
   .stagebar .chip{padding:8px 12px;min-height:40px;font-size:.9rem}
@@ -344,6 +355,11 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
           <div class="livebox" id="liveBox" aria-live="polite" aria-atomic="false">
             <span class="ph">버튼을 누르고 있는 동안 말하면<br>이 자리에 글자가 나타납니다.</span>
           </div>
+          <div class="chainbar" id="chainBar" hidden aria-hidden="true">
+            <span class="clab">이어 읽기</span>
+            <span id="chainWords" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+            <span class="cnote">초록색 낱말만 학생 목소리로 나옵니다. 줄이 그어진 낱말은 아직 모델이 없습니다.</span>
+          </div>
           <textarea class="liveedit" id="liveEdit" hidden aria-label="기록 전 내용 수정"></textarea>
           <div class="holdbar" id="holdBar" hidden aria-hidden="true"><i></i></div>
         </div>
@@ -356,6 +372,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
           <div class="actrow">
             <button class="btn act" id="speakBtn" disabled>🔊 내 목소리 듣기</button>
             <button class="btn act" id="drillBtn" disabled>🐢 천천히 반복</button>
+            <button class="btn act" id="chainBtn" disabled>🗣️ 이어 읽기</button>
             <button class="btn act" id="wordBtn" disabled>✂️ 낱말 고르기</button>
             <button class="btn act" id="wmBtn">📚 낱말 모델</button>
             <button class="btn act" id="editBtn">✏️ 수정</button>
@@ -363,7 +380,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
             <button class="btn act" id="clearBtn" title="기록하지 않고 화면을 지웁니다">🧹 지우기</button>
           </div>
         </div>
-        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 낱말 고르기는 방금 녹음에서 바르게 낸 한 낱말만 잘라 학생별 모델로 남기고, 낱말 모델에서 다시 듣습니다. 모든 음성과 낱말 모델은 1시간 뒤 자동으로 지워집니다. 목소리 녹음 버튼은 소리가 들어오는 것을 보여 주는 용도이며 저장하지 않습니다.</p>
+        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 낱말 고르기는 방금 녹음에서 바르게 낸 한 낱말만 잘라 학생별 모델로 남기고, 낱말 모델에서 다시 듣습니다. 이어 읽기는 저장해 둔 낱말 모델을 문장 순서대로 이어 들려줍니다. 모든 음성과 낱말 모델은 1시간 뒤 자동으로 지워집니다. 목소리 녹음 버튼은 소리가 들어오는 것을 보여 주는 용도이며 저장하지 않습니다.</p>
         </div>
       </div>
     </section>
@@ -1300,10 +1317,11 @@ function playBlob(blob, btn, id, after, rate){
 function stopAllAudio(){
   slowOn=false;
   if(slowT){ clearTimeout(slowT); slowT=null; }
+  if(typeof chainStop==="function") chainStop();
   stopClip(); setSpeakState(false);
   restoreBtn($("#drillBtn"));
 }
-function anyPlaying(){ return !!(playingId || slowOn); }
+function anyPlaying(){ return !!(playingId || slowOn || chainOn); }
 
 /* ===== 내 목소리 재생 (기계 음성은 쓰지 않는다) ===== */
 function playLabel(){ return "🔊 내 목소리 듣기"; }
@@ -1467,7 +1485,7 @@ function openWord(){
     wBuf=buf; wDur=buf.duration; wRenderSpan();
   });
 }
-function closeWord(){ stopAllAudio(); $("#wordPanel").hidden=true; $("#ovl").hidden=true; }
+function closeWord(){ stopAllAudio(); $("#wordPanel").hidden=true; $("#ovl").hidden=true; renderLive(); }
 function wClip(){
   if(!wBuf) return null;
   var a=wSec("#wStart"), b=wSec("#wEnd");
@@ -1489,7 +1507,7 @@ function wSaveModel(){
     if(!ok){ toast("저장하지 못했습니다."); return; }
     WM.unshift({ id:id, speaker:S.speaker||"미지정", word:wWord,
                  sec:+(b-a).toFixed(2), bytes:bl.size, at:at });
-    saveWM(); renderWM(); renderAudioInfo();
+    saveWM(); renderWM(); renderAudioInfo(); renderLive();
     toast("“"+wWord+"” 낱말 모델을 "+(S.speaker||"미지정")+" 학생으로 저장했습니다. 1시간 뒤 지워집니다.");
     closeWord();
   });
@@ -1501,7 +1519,7 @@ function openWM(){
   if(WM.some(function(m){ return m.speaker===S.speaker && wmLeftMs(m.at)>0; })) wmWho=S.speaker;
   renderWM(); $("#wmPanel").hidden=false; $("#ovl").hidden=false;
 }
-function closeWM(){ stopAllAudio(); $("#wmPanel").hidden=true; $("#ovl").hidden=true; }
+function closeWM(){ stopAllAudio(); $("#wmPanel").hidden=true; $("#ovl").hidden=true; renderLive(); }
 function wmPlay(m, btn, slow){
   if(anyPlaying()){ stopAllAudio(); return; }
   audioGet(m.id, function(v){
@@ -1597,6 +1615,96 @@ function wmWipe(){
   WM=WM.filter(function(m){ return !ids[m.id]; });
   saveWM(); renderWM(); renderAudioInfo();
   toast(who+"낱말 모델을 삭제했습니다.");
+}
+
+
+/* ===== 이어 읽기 =====
+   큰 화면에 있는 글을 학생이 실제로 낸 소리로 읽어 준다.
+   저장해 둔 낱말 모델을 문장 순서대로 이어 재생하며,
+   모델이 없는 낱말은 건너뛰고 화면에 표시한다. 합성은 쓰지 않는다. */
+var chainOn=false, chainT=null, chainIdx=-1, chainList=[];
+
+function chainPlan(){
+  var words=curText().split(/\s+/).filter(Boolean);
+  var live=wmLive().filter(function(m){ return m.speaker===S.speaker; });
+  return words.map(function(w){
+    var hit=null, i;
+    for(i=0;i<live.length;i++){ if(live[i].word===w){ hit=live[i]; break; } }
+    if(!hit){ /* 조사가 붙은 낱말은 앞부분이 같으면 같은 낱말로 본다 */
+      for(i=0;i<live.length;i++){
+        if(live[i].word.length>=2 && w.indexOf(live[i].word)===0){ hit=live[i]; break; }
+      }
+    }
+    return { w:w, m:hit };
+  });
+}
+function chainHits(){
+  var n=0; chainPlan().forEach(function(x){ if(x.m) n++; }); return n;
+}
+function showChainBar(on){
+  var el=$("#chainBar"); if(!el) return;
+  el.hidden=!on; el.setAttribute("aria-hidden", on?"false":"true");
+  fitStage();
+}
+function renderChainBar(){
+  var c=$("#chainWords"); if(!c) return;
+  c.innerHTML="";
+  chainList.forEach(function(x,i){
+    var e=document.createElement("span");
+    e.className="cw "+(x.m?"has":"no")+(i===chainIdx?" now":"");
+    e.textContent=x.w;
+    c.appendChild(e);
+  });
+}
+function setChainBusy(on){
+  var b=$("#chainBtn"); if(!b) return;
+  b.classList.toggle("playing",!!on);
+  b.textContent = on ? "⏹️ 멈추기" : "🗣️ 이어 읽기";
+}
+function chainStop(){
+  chainOn=false;
+  if(chainT){ clearTimeout(chainT); chainT=null; }
+  chainIdx=-1; setChainBusy(false);
+  if(chainList.length) renderChainBar();
+}
+function chainStep(){
+  if(!chainOn) return;
+  chainIdx++;
+  while(chainIdx<chainList.length && !chainList[chainIdx].m) chainIdx++;
+  renderChainBar();
+  if(chainIdx>=chainList.length){
+    chainOn=false; chainIdx=-1; setChainBusy(false); renderChainBar();
+    toast("끝까지 읽었습니다.");
+    return;
+  }
+  var m=chainList[chainIdx].m;
+  audioGet(m.id, function(v){
+    if(!chainOn) return;
+    if(!v || !v.blob){   /* 보관 시간이 지난 모델은 목록에서 뺀다 */
+      WM=WM.filter(function(x){ return x.id!==m.id; }); saveWM();
+      chainT=setTimeout(chainStep, 60); return;
+    }
+    playBlob(v.blob, null, "__chain", function(){
+      if(!chainOn) return;
+      chainT=setTimeout(chainStep, 260);
+    }, 1);
+  });
+}
+function chainToggle(){
+  if(chainOn || anyPlaying()){ stopAllAudio(); return; }
+  if(editing) endEdit();
+  if(wantListen){ endListen(false); }
+  var plan=chainPlan();
+  if(!plan.length){ toast("화면에 읽을 글이 없습니다."); return; }
+  chainList=plan; chainIdx=-1;
+  var n=0; plan.forEach(function(x){ if(x.m) n++; });
+  showChainBar(true); renderChainBar();
+  if(!n){
+    toast((S.speaker||"이 학생")+" 학생의 낱말 모델이 이 문장에 하나도 없습니다. 낱말 고르기로 먼저 만드십시오.");
+    return;
+  }
+  chainOn=true; setChainBusy(true);
+  chainStep();
 }
 
 /* ===== 기록 전 수정 ===== */
@@ -1751,6 +1859,16 @@ function renderLive(){
     sp.textContent=playLabel();
     sp.title=recBlob?"학생이 방금 말한 소리를 그대로 들려줍니다":"녹음된 목소리가 없습니다";
   }
+  var cb=$("#chainBtn");
+  if(cb && !cb.classList.contains("playing")){
+    var ct=curText().trim();
+    var hit=ct?chainHits():0;
+    cb.disabled=!hit;
+    cb.textContent="🗣️ 이어 읽기";
+    cb.title = !ct ? "화면에 읽을 글이 없습니다"
+             : !hit ? (S.speaker+" 학생의 낱말 모델이 이 문장에 없습니다. 낱말 고르기로 만드십시오")
+             : "화면의 글을 "+S.speaker+" 학생이 실제로 낸 소리로 이어 읽어 줍니다 ("+hit+"개 낱말)";
+  }
   var wb=$("#wordBtn");
   if(wb){
     wb.disabled=!recBlob;
@@ -1829,6 +1947,7 @@ function beginListen(){
   if(editing){ toast("수정을 마친 뒤 녹음하세요."); return false; }
   stopAllAudio();
   clearClip();
+  chainList=[]; showChainBar(false);
   wantListen=true; restartAt=Date.now(); start(); requestWake();
   startRec();
   return true;
@@ -1965,6 +2084,7 @@ function bind(){
   $("#editBtn").onclick=function(){ editing?endEdit():startEdit(); };
   $("#speakBtn").onclick=listenBack;
   $("#drillBtn").onclick=slowToggle;
+  $("#chainBtn").onclick=chainToggle;
   $("#wordBtn").onclick=openWord;
   $("#wordClose").onclick=closeWord;
   $("#wmBtn").onclick=openWM;
@@ -2007,6 +2127,7 @@ function bind(){
       $("#editBtn").textContent="✏️ 수정"; $("#editBtn").classList.remove("primary"); $("#micBtn").disabled=false; }
     stopHoldTimer(); pending=null; finalBuf=""; interimBuf=""; rawBuf="";
     fixCount=0; voiceUsed=false; editedFlag=false; stopAllAudio(); clearClip();
+    chainList=[]; showChainBar(false);
     renderLive(); fitStage();
     toast(lost?"기록하지 않고 지웠습니다.":"화면을 비웠습니다.");
   };
