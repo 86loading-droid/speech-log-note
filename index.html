@@ -112,6 +112,17 @@
 .synbadge{display:inline-block;border:2px solid var(--accent);color:var(--accent);
   border-radius:999px;padding:1px 8px;font-size:.72rem;font-weight:700;margin-left:6px}
 
+/* 단어 고르기(편집형 자기 모델링) */
+.wchip{border:2px solid var(--line);background:var(--surface2);color:var(--text);border-radius:10px;
+  padding:10px 14px;font:inherit;font-weight:700;cursor:pointer;min-height:46px;font-size:1rem}
+.wchip[aria-pressed="true"]{background:var(--ok);color:#fff;border-color:var(--ok)}
+.wrange{display:flex;align-items:center;gap:10px;margin-top:6px}
+.wrange label{font-size:.78rem;color:var(--text2);min-width:34px}
+.wspan{font-variant-numeric:tabular-nums;font-weight:700;font-size:.9rem;margin-top:8px;
+  border:2px dashed var(--line);border-radius:10px;padding:8px 10px;text-align:center}
+.wkeep{border:2px solid var(--live);color:var(--live);background:var(--surface);
+  border-radius:10px;padding:10px 12px;font-size:.82rem;font-weight:700;line-height:1.5;margin-top:10px}
+
 }
 @media(max-width:430px){
   .stagebar .chip{padding:8px 12px;min-height:40px;font-size:.9rem}
@@ -253,29 +264,36 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 .hr{height:2px;background:var(--line);border:0;margin:18px 0}
 .row-end{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 /* ===== 가로 화면 배치 (뒤에 오는 규칙에 덮이지 않도록 마지막에 둔다) ===== */
-/* 가로로 눕힌 태블릿: 자막을 왼쪽에 크게, 버튼을 오른쪽 세로줄에 */
+/* 가로로 눕힌 태블릿: 글자가 화면 전체 폭을 쓰고, 버튼은 모두 화면 하단에 모인다 */
 @media (orientation:landscape) and (min-width:900px){
-  .topbar-in{padding:6px 16px}
-  .tabs{margin:8px 0;padding:4px}
-  .tab{min-height:40px;padding:8px}
-  .stage{display:grid;grid-template-columns:1fr 264px;grid-template-rows:auto 1fr;
-    gap:10px;grid-template-areas:"bar bar" "main side"}
-  .stagebar{grid-area:bar}
-  .stagemain{grid-area:main}
-  .stageside{grid-area:side;min-height:0;overflow-y:auto}
-  .microw{grid-template-columns:1fr}
-  .actrow{grid-template-columns:1fr}
-  .mic{min-height:76px;font-size:1.1rem;width:100%}
-  #recBtn{font-size:1rem;min-height:64px}
-  .stageside .btn{width:100%}
-  .act{min-height:50px;font-size:.92rem}
-  #micNote{margin-top:2px}
+  /* 글자 영역을 최대한 넓히려고 위쪽 요소의 높이를 줄인다 */
+  .topbar-in{padding:3px 16px}
+  .brand{font-size:.95rem;flex-wrap:wrap;align-items:baseline}
+  .brand small{display:inline;margin-left:8px}
+  .topbar .btn.sm{min-height:32px;padding:4px 10px;font-size:.82rem}
+  .tabs{margin:6px 0;padding:3px}
+  .tab{min-height:34px;padding:5px;font-size:.9rem}
+  .stage{display:flex;flex-direction:column;gap:8px;padding-top:0}
+  .stagemain{flex:1 1 auto;min-height:0}
+  .stageside{flex:0 0 auto}
+  .stagebar .chip{min-height:38px;padding:6px 12px}
+  .stagebar .btn.sm{min-height:34px}
+  .microw{grid-template-columns:2fr 1fr}
+  .actrow{grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}
+  .mic{min-height:54px;font-size:1rem}
+  #recBtn{min-height:54px;font-size:.92rem}
+  .act{min-height:42px;font-size:.82rem;padding:6px 8px;white-space:nowrap}
+  #micNote{display:none}
 }
 @media (orientation:landscape) and (min-width:900px) and (max-height:700px){
-  .mic{min-height:60px;font-size:1rem}
-  #recBtn{min-height:54px;font-size:.92rem}
-  .act{min-height:44px;font-size:.86rem}
-  #micNote{display:none}
+  .mic{min-height:46px;font-size:.95rem}
+  #recBtn{min-height:46px;font-size:.86rem}
+  .act{min-height:38px;font-size:.78rem}
+  .actrow{grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
+  .stage{gap:6px}
+  .stagebar .chip{min-height:34px}
+  .tabs{margin:4px 0}
+  .tab{min-height:30px;font-size:.85rem}
 }
 </style>
 <!--/AR-->
@@ -343,13 +361,15 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
           <div class="actrow">
             <button class="btn act" id="speakBtn" disabled>🔊 내 목소리 듣기</button>
             <button class="btn act" id="drillBtn" disabled>🐢 천천히 반복</button>
-            <button class="btn act" id="synBtn" disabled hidden>🗣️ 바른 발음 듣기</button>
+            <button class="btn act" id="synBtn" disabled hidden>🗣️ 바른 발음</button>
+            <button class="btn act" id="wordBtn" disabled>✂️ 낱말 고르기</button>
+            <button class="btn act" id="wmBtn">📚 낱말 모델</button>
             <button class="btn act" id="editBtn">✏️ 수정</button>
             <button class="btn act primary" id="saveBtn" disabled>💾 기록하기</button>
             <button class="btn act" id="clearBtn" title="기록하지 않고 화면을 지웁니다">🧹 지우기</button>
           </div>
         </div>
-        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 바른 발음 듣기는 학생 본인 목소리를 복제해 만든 발음 모델이며, 화면에 합성이라고 표시되고 기록에는 저장되지 않습니다. 목소리 녹음 버튼은 소리가 들어오는 것을 보여 주는 용도이며 저장하지 않습니다.</p>
+        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 낱말 고르기는 방금 녹음에서 바르게 낸 한 낱말만 잘라 모델로 남기고, 낱말 모델에서 다시 듣습니다. 모델도 녹음과 같이 최대 1시간만 보관되고 자동으로 지워집니다. 바른 발음 듣기는 학생 본인 목소리를 복제해 만든 발음 모델이며, 화면에 합성이라고 표시되고 기록에는 저장되지 않습니다. 목소리 녹음 버튼은 소리가 들어오는 것을 보여 주는 용도이며 저장하지 않습니다.</p>
         </div>
       </div>
     </section>
@@ -531,7 +551,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 
     <hr class="hr">
     <h2>학생 목소리 녹음</h2>
-    <p class="note">마이크 버튼을 누르고 있는 동안의 음성을 함께 담아, 인식된 글자와 대조해 들을 수 있게 합니다. 파일로 내보내는 기능은 두지 않았습니다. 음성은 이 기기 안에만 남고 아래 보관 시간이 지나면 자동으로 지워집니다.</p>
+    <p class="note">마이크 버튼을 누르고 있는 동안의 음성을 함께 담아, 인식된 글자와 대조해 들을 수 있게 합니다. 파일로 내보내는 기능은 두지 않았습니다. 음성은 이 기기 안에만 남고 아래 보관 시간이 지나면 자동으로 지워집니다. 낱말 모델도 같은 규칙을 따르며 최대 1시간을 넘겨 보관되지 않습니다.</p>
     <div class="chiprow" style="margin-top:10px">
       <button class="chip" id="recChip" aria-pressed="true">녹음 사용</button>
     </div>
@@ -601,6 +621,49 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     <h2>저장 상태</h2>
     <p class="note" id="storeInfo"></p>
     <p class="note">기록은 이 기기의 브라우저 안에만 저장됩니다. 서버로 전송되지 않으므로, 기기를 바꾸거나 브라우저 데이터를 지우기 전에 반드시 JSON 또는 CSV로 내보내 주세요.</p>
+  </aside>
+
+  <!-- ============ 낱말 고르기 패널 ============ -->
+  <aside class="panel" id="wordPanel" hidden role="dialog" aria-modal="true" aria-label="낱말 고르기">
+    <div style="display:flex;align-items:center;gap:10px">
+      <h2 style="margin-right:auto">✂️ 낱말 고르기</h2>
+      <button class="btn sm" id="wordClose">닫기</button>
+    </div>
+    <p class="note">방금 녹음에서 학생이 바르게 낸 한 낱말만 잘라 모델로 남깁니다. 학생이 실제로 낸 소리이므로 자기 모델링 자료로 그대로 쓸 수 있습니다.</p>
+
+    <label class="f">대상 낱말</label>
+    <div class="chiprow" id="wordChips"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input type="text" id="wordCustom" placeholder="목록에 없으면 직접 입력">
+      <button class="btn" id="wordCustomSet">지정</button>
+    </div>
+
+    <label class="f" style="margin-top:14px">구간 고르기</label>
+    <div class="wrange"><label for="wStart">시작</label><input type="range" id="wStart" min="0" max="100" step="1" value="0" aria-label="구간 시작"></div>
+    <div class="wrange"><label for="wEnd">끝</label><input type="range" id="wEnd" min="0" max="100" step="1" value="100" aria-label="구간 끝"></div>
+    <div class="wspan" id="wSpan">녹음을 불러오는 중…</div>
+
+    <div class="chiprow" style="margin-top:12px">
+      <button class="btn" id="wPlay">▶ 구간 들어 보기</button>
+      <button class="btn" id="wPlaySlow">🐢 느리게</button>
+      <button class="btn primary" id="wSave" disabled>💾 낱말 모델로 저장</button>
+    </div>
+
+    <div class="wkeep">보관 시간 안내 — 낱말 모델도 녹음과 똑같이 최대 1시간만 이 기기에 남고 자동으로 지워집니다. 서버로 보내지 않으며, 파일로 내보내지도 않습니다. 다음 수업에 쓰시려면 그때 다시 만드십시오.</div>
+  </aside>
+
+  <!-- ============ 낱말 모델 패널 ============ -->
+  <aside class="panel" id="wmPanel" hidden role="dialog" aria-modal="true" aria-label="낱말 모델">
+    <div style="display:flex;align-items:center;gap:10px">
+      <h2 style="margin-right:auto">📚 낱말 모델</h2>
+      <button class="btn sm" id="wmClose">닫기</button>
+    </div>
+    <p class="note">학생이 바르게 낸 낱말을 모아 둔 곳입니다. 듣기로 바른 소리를 확인하고, 천천히로 조음을 살핍니다.</p>
+    <div class="wkeep" id="wmKeepNote">보관 시간 안내 — 낱말 모델은 만든 때부터 최대 1시간 뒤 자동으로 지워집니다. 남은 시간이 각 항목에 표시됩니다.</div>
+    <div id="wmList" style="margin-top:12px"></div>
+    <div class="row-end" style="margin-top:10px">
+      <button class="btn danger sm" id="wmWipe">낱말 모델 모두 삭제</button>
+    </div>
   </aside>
 </div>
 
@@ -1122,6 +1185,11 @@ function purgeAudio(force){
           var touched=false;
           RECS.forEach(function(r){ if(r.audio && m[r.id]){ delete r.audio; touched=true; } });
           if(touched){ saveRecs(); renderLists(); }
+          if(typeof WM!=="undefined"){
+            var n0=WM.length;
+            WM=WM.filter(function(x){ return !m[x.id]; });
+            if(WM.length!==n0){ saveWM(); renderWM(); }
+          }
           renderAudioInfo();
         } else renderAudioInfo();
       };
@@ -1138,7 +1206,8 @@ function renderAudioInfo(){
       cur.onsuccess=function(e){
         var c=e.target.result;
         if(c){ n++; bytes+=(c.value&&c.value.blob&&c.value.blob.size)||0; c.continue(); }
-        else el.textContent="보관 중인 음성 "+n+"개 · 약 "+(bytes/1024/1024).toFixed(2)+"MB · "+
+        else el.textContent="보관 중인 음성 "+n+"개(낱말 모델 "+
+          ((typeof WM!=="undefined"?WM.length:0))+"개 포함) · 약 "+(bytes/1024/1024).toFixed(2)+"MB · "+
           (+S.recKeepMin||60)+"분이 지나면 자동 삭제";
       };
     }catch(e){}
@@ -1334,6 +1403,187 @@ function curText(){
   return [held,finalBuf,interimBuf].filter(Boolean).join(" ").trim();
 }
 
+
+
+/* ===== 낱말 모델 (편집형 자기 모델링) =====
+   학생이 실제로 낸 소리에서 한 낱말 구간만 잘라 보관한다.
+   합성이 아니라 학생의 실제 발화이므로 자기 모델링 근거가 그대로 적용된다.
+   보관 시간은 녹음과 같고 최대 1시간을 넘지 않는다. */
+var K_WM="sttlog.wordmodels.v1";
+var WM=store.get(K_WM,[]);
+function saveWM(){ store.set(K_WM,WM); }
+
+function wmKeepMin(){ return Math.min(60, +S.recKeepMin||60); }
+function wmLeftMs(at){ var t=(at||0)+wmKeepMin()*60000-Date.now(); return t>0?t:0; }
+function wmLeftText(at){
+  var ms=wmLeftMs(at);
+  if(ms<=0) return "곧 지워짐";
+  var m=Math.floor(ms/60000);
+  return m>=1 ? (m+"분 뒤 자동 삭제") : (Math.max(1,Math.round(ms/1000))+"초 뒤 자동 삭제");
+}
+
+/* ---- 오디오 잘라내기 (webm/opus → 구간 → WAV) ---- */
+var wmCtx=null;
+function audioCtx(){
+  if(!wmCtx){ var C=window.AudioContext||window.webkitAudioContext; if(!C) return null; wmCtx=new C(); }
+  return wmCtx;
+}
+function decodeClip(blob, cb){
+  var c=audioCtx(); if(!c) return cb(null);
+  var fr=new FileReader();
+  fr.onload=function(){
+    try{
+      var r=c.decodeAudioData(fr.result, function(buf){ cb(buf); }, function(){ cb(null); });
+      if(r && r.then) r.then(function(b){ cb(b); }).catch(function(){ cb(null); });
+    }catch(e){ cb(null); }
+  };
+  fr.onerror=function(){ cb(null); };
+  fr.readAsArrayBuffer(blob);
+}
+function bufToWav(buf, from, to){
+  var sr=buf.sampleRate, ch=buf.numberOfChannels;
+  var s0=Math.max(0,Math.floor(from*sr)), s1=Math.min(buf.length,Math.ceil(to*sr));
+  var n=Math.max(1,s1-s0);
+  var mix=new Float32Array(n);
+  for(var c=0;c<ch;c++){
+    var d=buf.getChannelData(c);
+    for(var i=0;i<n;i++) mix[i]+=d[s0+i]/ch;
+  }
+  var bytes=44+n*2, ab=new ArrayBuffer(bytes), v=new DataView(ab), o=0;
+  function str(x){ for(var i=0;i<x.length;i++) v.setUint8(o++, x.charCodeAt(i)); }
+  function u32(x){ v.setUint32(o,x,true); o+=4; }
+  function u16(x){ v.setUint16(o,x,true); o+=2; }
+  str("RIFF"); u32(36+n*2); str("WAVE"); str("fmt "); u32(16); u16(1); u16(1);
+  u32(sr); u32(sr*2); u16(2); u16(16); str("data"); u32(n*2);
+  for(var j=0;j<n;j++){
+    var x=Math.max(-1,Math.min(1,mix[j]));
+    v.setInt16(44+j*2, x<0?x*0x8000:x*0x7FFF, true);
+  }
+  return new Blob([ab],{type:"audio/wav"});
+}
+
+/* ---- 낱말 고르기 패널 ---- */
+var wBuf=null, wDur=0, wWord="", wPrev=null;
+function wSec(id){
+  var el=$(id); if(!el||!wDur) return 0;
+  return (+el.value/1000)*wDur;
+}
+function wRenderSpan(){
+  var a=wSec("#wStart"), b=wSec("#wEnd");
+  var el=$("#wSpan");
+  if(!wBuf){ el.textContent="녹음을 불러오지 못했습니다."; return; }
+  if(b-a<0.08){ el.textContent="구간이 너무 짧습니다 (0.1초 이상)"; $("#wSave").disabled=true; return; }
+  el.textContent=a.toFixed(2)+"초 ~ "+b.toFixed(2)+"초 · 길이 "+(b-a).toFixed(2)+"초"+
+    (wWord?(" · 낱말 “"+wWord+"”"):" · 낱말을 고르십시오");
+  $("#wSave").disabled=!wWord;
+}
+function wRenderChips(){
+  var c=$("#wordChips"); c.innerHTML="";
+  var words=curText().split(/\s+/).filter(Boolean).slice(0,24);
+  if(!words.length){ c.innerHTML='<span class="note">화면에 글자가 없습니다. 직접 입력하십시오.</span>'; return; }
+  words.forEach(function(w){
+    var b=document.createElement("button");
+    b.className="wchip"; b.type="button"; b.textContent=w;
+    b.setAttribute("aria-pressed", w===wWord?"true":"false");
+    b.onclick=function(){ wWord=w; wRenderChips(); wRenderSpan(); };
+    c.appendChild(b);
+  });
+}
+function openWord(){
+  if(!recBlob){ toast("먼저 학생이 말한 소리를 녹음하십시오."); return; }
+  stopAllAudio();
+  wWord=""; wBuf=null; wDur=0;
+  $("#wordPanel").hidden=false; $("#ovl").hidden=false;
+  $("#wStart").value=0; $("#wEnd").value=1000;
+  $("#wStart").max=1000; $("#wEnd").max=1000;
+  $("#wSave").disabled=true;
+  $("#wSpan").textContent="녹음을 불러오는 중…";
+  wRenderChips();
+  decodeClip(recBlob, function(buf){
+    if(!buf){ $("#wSpan").textContent="이 기기에서는 녹음을 잘라낼 수 없습니다."; return; }
+    wBuf=buf; wDur=buf.duration; wRenderSpan();
+  });
+}
+function closeWord(){ stopAllAudio(); $("#wordPanel").hidden=true; $("#ovl").hidden=true; }
+function wClip(){
+  if(!wBuf) return null;
+  var a=wSec("#wStart"), b=wSec("#wEnd");
+  if(b-a<0.08) return null;
+  return bufToWav(wBuf,a,b);
+}
+function wPreview(slow){
+  var bl=wClip(); if(!bl){ toast("구간을 먼저 고르십시오."); return; }
+  if(anyPlaying()){ stopAllAudio(); return; }
+  playBlob(bl, null, "__wprev", null, slow?(+S.drillRate||0.7):1);
+}
+function wSaveModel(){
+  var bl=wClip();
+  if(!bl){ toast("구간을 먼저 고르십시오."); return; }
+  if(!wWord){ toast("낱말을 먼저 고르십시오."); return; }
+  var a=wSec("#wStart"), b=wSec("#wEnd");
+  var id="wm-"+uid(), at=Date.now();
+  audioPut(id, bl, function(ok){
+    if(!ok){ toast("저장하지 못했습니다."); return; }
+    WM.unshift({ id:id, speaker:S.speaker||"미지정", word:wWord,
+                 sec:+(b-a).toFixed(2), bytes:bl.size, at:at });
+    saveWM(); renderWM(); renderAudioInfo();
+    toast("“"+wWord+"” 낱말 모델을 저장했습니다. "+wmKeepMin()+"분 안에 지워집니다.");
+    closeWord();
+  });
+}
+
+/* ---- 낱말 모델 패널 ---- */
+function openWM(){ renderWM(); $("#wmPanel").hidden=false; $("#ovl").hidden=false; }
+function closeWM(){ stopAllAudio(); $("#wmPanel").hidden=true; $("#ovl").hidden=true; }
+function wmPlay(m, btn, slow){
+  if(anyPlaying()){ stopAllAudio(); return; }
+  audioGet(m.id, function(v){
+    if(!v || !v.blob){
+      WM=WM.filter(function(x){return x.id!==m.id;}); saveWM(); renderWM();
+      toast("보관 시간이 지나 지워졌습니다."); return;
+    }
+    if(slow) slowRepeat(v.blob, btn, "🐢 천천히");
+    else { btn.dataset.label="🔊 듣기"; playBlob(v.blob, btn, m.id, null, 1); }
+  });
+}
+function renderWM(){
+  var el=$("#wmList"); if(!el) return;
+  $("#wmKeepNote").textContent="보관 시간 안내 — 낱말 모델은 만든 때부터 "+wmKeepMin()+
+    "분(최대 1시간) 뒤 자동으로 지워집니다. 남은 시간이 각 항목에 표시됩니다.";
+  el.innerHTML="";
+  var live=WM.filter(function(m){ return wmLeftMs(m.at)>0; });
+  if(!live.length){
+    el.innerHTML='<p class="note">저장된 낱말 모델이 없습니다. 기록 화면에서 낱말 고르기를 눌러 만드십시오.</p>';
+    return;
+  }
+  live.forEach(function(m){
+    var row=document.createElement("div"); row.className="fixrow";
+    var left=document.createElement("div");
+    left.innerHTML='<div class="ft"></div><div class="fh"></div>';
+    left.querySelector(".ft").textContent=m.word;
+    left.querySelector(".fh").textContent=m.speaker+" · "+m.sec.toFixed(2)+"초 · "+wmLeftText(m.at);
+    var wrap=document.createElement("div"); wrap.style.display="flex"; wrap.style.gap="6px";
+    var p1=document.createElement("button"); p1.className="btn sm"; p1.textContent="🔊 듣기";
+    p1.onclick=function(){ wmPlay(m,p1,false); };
+    var p2=document.createElement("button"); p2.className="btn sm"; p2.textContent="🐢 천천히";
+    p2.onclick=function(){ wmPlay(m,p2,true); };
+    var d=document.createElement("button"); d.className="btn sm danger"; d.textContent="🗑️";
+    d.setAttribute("aria-label", m.word+" 삭제");
+    d.onclick=function(){
+      audioDel([m.id]);
+      WM=WM.filter(function(x){return x.id!==m.id;}); saveWM(); renderWM(); renderAudioInfo();
+    };
+    wrap.appendChild(p1); wrap.appendChild(p2); wrap.appendChild(d);
+    row.appendChild(left); row.appendChild(wrap); el.appendChild(row);
+  });
+}
+function wmWipe(){
+  if(!WM.length){ toast("삭제할 낱말 모델이 없습니다."); return; }
+  if(!confirm("저장된 낱말 모델을 모두 삭제합니다.")) return;
+  audioDel(WM.map(function(m){return m.id;}));
+  WM=[]; saveWM(); renderWM(); renderAudioInfo();
+  toast("낱말 모델을 모두 삭제했습니다.");
+}
 
 /* ===== 발음 모델(음성 복제) =====
    합성은 Cloudflare Workers 중계를 거쳐 이루어진다.
@@ -1649,6 +1899,11 @@ function renderLive(){
     sp.textContent=playLabel();
     sp.title=recBlob?"학생이 방금 말한 소리를 그대로 들려줍니다":"녹음된 목소리가 없습니다";
   }
+  var wb=$("#wordBtn");
+  if(wb){
+    wb.disabled=!recBlob;
+    wb.title=recBlob?"방금 녹음에서 한 낱말만 잘라 모델로 남깁니다":"녹음된 목소리가 없습니다";
+  }
   var sy=$("#synBtn");
   if(sy){
     sy.hidden=!ttsOn();
@@ -1872,6 +2127,27 @@ function bind(){
   $("#speakBtn").onclick=listenBack;
   $("#drillBtn").onclick=slowToggle;
   $("#synBtn").onclick=synToggle;
+  $("#wordBtn").onclick=openWord;
+  $("#wordClose").onclick=closeWord;
+  $("#wmBtn").onclick=openWM;
+  $("#wmClose").onclick=closeWM;
+  $("#wmWipe").onclick=wmWipe;
+  $("#wStart").oninput=function(){
+    if(+$("#wEnd").value <= +this.value) $("#wEnd").value=Math.min(1000,+this.value+20);
+    wRenderSpan();
+  };
+  $("#wEnd").oninput=function(){
+    if(+$("#wStart").value >= +this.value) $("#wStart").value=Math.max(0,+this.value-20);
+    wRenderSpan();
+  };
+  $("#wPlay").onclick=function(){ wPreview(false); };
+  $("#wPlaySlow").onclick=function(){ wPreview(true); };
+  $("#wSave").onclick=wSaveModel;
+  $("#wordCustomSet").onclick=function(){
+    var v=$("#wordCustom").value.trim();
+    if(!v){ toast("낱말을 입력하십시오."); return; }
+    wWord=v; wRenderChips(); wRenderSpan();
+  };
   $("#focusBtn").onclick=function(){
     var a=$("#app"), on=!a.classList.contains("focus");
     a.classList.toggle("focus",on);
@@ -1914,12 +2190,13 @@ function bind(){
   $("#ttsToken").onchange=function(){ S.ttsToken=this.value; saveSet(); };
   $("#ttsTest").onclick=ttsTest;
   $("#synModeSel").onchange=function(){ S.synMode=this.value; saveSet(); };
-  $("#recKeepSel").onchange=function(){ S.recKeepMin=+this.value; saveSet(); purgeAudio(false); };
+  $("#recKeepSel").onchange=function(){ S.recKeepMin=+this.value; saveSet(); purgeAudio(false); renderWM(); };
   $("#recRateSel").onchange=function(){ S.recBps=+this.value; saveSet(); };
   $("#wipeAudio").onclick=function(){
     if(!confirm("보관 중인 음성을 모두 삭제합니다. 글자 기록은 그대로 남습니다.")) return;
     stopAllAudio(); clearClip(); purgeAudio(true);
     SYN={}; synBlob=null;
+    WM=[]; saveWM(); renderWM();
     RECS.forEach(function(r){ delete r.audio; }); saveRecs(); renderLists();
     toast("음성을 모두 삭제했습니다.");
   };
@@ -1929,7 +2206,8 @@ function bind(){
   ["#tab-rec","#tab-list","#tab-stat"].forEach(function(s){
     $(s).onclick=function(){ showTab(s.replace("#tab-","")); };
   });
-  $("#setBtn").onclick=openPanel; $("#panelClose").onclick=closePanel; $("#ovl").onclick=closePanel;
+  $("#setBtn").onclick=openPanel; $("#panelClose").onclick=closePanel;
+  $("#ovl").onclick=function(){ closePanel(); closeWord(); closeWM(); };
   $("#themeBtn").onclick=function(){
     var order=["light","dark","hc-yellow","hc-black"];
     S.theme=order[(order.indexOf(S.theme)+1)%order.length]; applyTheme(); saveSet();
@@ -2055,7 +2333,7 @@ function init(){
   $("#ttsUrl").value=S.ttsUrl||"";
   $("#ttsToken").value=S.ttsToken||"";
   $("#synModeSel").value=S.synMode||"model";
-  renderVoices();
+  renderVoices(); renderWM();
   renderRecBtn();
   purgeAudio(false);
   setInterval(function(){ purgeAudio(false); }, 60000);
