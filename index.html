@@ -381,7 +381,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
             <button class="btn act" id="clearBtn" title="기록하지 않고 화면을 지웁니다">🧹 지우기</button>
           </div>
         </div>
-        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 낱말 고르기는 방금 녹음에서 바르게 낸 한 낱말만 잘라 학생별 모델로 남기고, 낱말 모델에서 다시 듣습니다. 이어 읽기는 저장해 둔 낱말과 음절을 이어 붙여 화면의 글을 읽어 줍니다. 모든 음성과 낱말 모델은 1시간 뒤 자동으로 지워집니다. 목소리 녹음 버튼은 소리가 들어오는 것을 보여 주는 용도이며 저장하지 않습니다.</p>
+        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 낱말 고르기는 방금 녹음에서 바르게 낸 한 낱말만 잘라 학생별 모델로 남기고, 낱말 모델에서 다시 듣습니다. 이어 읽기는 저장해 둔 낱말과 음절을 이어 붙여 화면의 글을 읽어 줍니다. 모든 음성과 낱말 모델은 1시간 뒤 자동으로 지워집니다. 목소리 녹음 버튼은 글자 인식 없이 목소리만 담습니다. 담은 소리도 듣기·낱말 고르기·이어 읽기에 그대로 쓸 수 있습니다.</p>
         </div>
       </div>
     </section>
@@ -1224,7 +1224,7 @@ function idleRelease(){
   if(recIdleT) clearTimeout(recIdleT);
   recIdleT=setTimeout(releaseMic,180000);   /* 3분간 쓰지 않으면 마이크를 놓는다 */
 }
-function startRec(){
+function startRec(label){
   if(!S.recAudio || !recSupported() || !recAllowed()) return;
   var go=function(){
     try{
@@ -1234,11 +1234,13 @@ function startRec(){
       mr.onstop=function(){
         var b=recChunks.length?new Blob(recChunks,{type:recMime().split(";")[0]}):null;
         if(b && b.size>800){ recBlob=b; }
+        else if(vrWanted){ toast("너무 짧아 녹음되지 않았습니다. 조금 더 길게 눌러 주세요."); }
+        vrWanted=false;
         recChunks=[]; mr=null; idleRelease(); renderLive();
         if(!vrHold){ stopMeter(); showRecLive(false); }
       };
       mr.start(); recStartAt=Date.now();
-      showRecLive(true,"녹음 중"); startMeter();
+      showRecLive(true,label||"녹음 중"); startMeter();
     }catch(e){ mr=null; }
   };
   if(micStream && micStream.getAudioTracks().some(function(t){return t.readyState==="live";})) return go();
@@ -2228,39 +2230,34 @@ function pttUp(){
   var m=$("#micBtn"); m.classList.remove("rec"); m.textContent="🎤 누르고 말하기";
 }
 /* 목소리 녹음 전용 버튼: 누르는 동안 음성만 담는다(인식은 하지 않음) */
-var vrHold=false;
+var vrHold=false, vrWanted=false;
 function vrLabel(on){
   var b=$("#recBtn"); if(!b) return;
   b.classList.toggle("rec",!!on);
   b.textContent = on ? "🔴 녹음 중" : "🔴 목소리 녹음";
 }
-/* 목소리 녹음 버튼은 소리가 들어오는 것을 학생에게 보여 주는 용도다.
-   저장하지 않고, 마이크 입력 크기를 막대로만 표시한다. */
+/* 목소리 녹음 버튼: 글자 인식 없이 목소리만 담는다.
+   마이크 입력 크기를 막대로 보여 주고, 담은 소리는 듣기·낱말 고르기·이어 읽기에 쓴다. */
 function vrDown(e){
   if(vrHold) return;
   if(e && e.preventDefault) e.preventDefault();
   if(!S.recAudio){ toast("설정에서 녹음을 켜 주세요."); return; }
   if(!recAllowed()){ toast(S.speaker+" 학생은 녹음이 꺼져 있습니다."); return; }
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    toast("이 브라우저는 마이크를 쓸 수 없습니다."); return;
-  }
+  if(!recSupported()){ toast("이 브라우저는 마이크를 쓸 수 없습니다."); return; }
   if(editing){ toast("수정을 마친 뒤 눌러 주세요."); return; }
   if(wantListen) return;
-  vrHold=true; vrLabel(true);
-  showRecLive(true,"녹음 중 — "+S.speaker+" 말해 보세요");
-  var go=function(){ if(vrHold) startMeter(); else { stopMeter(); showRecLive(false); } };
-  if(micStream && micStream.getAudioTracks().some(function(t){return t.readyState==="live";})) return go();
-  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,channelCount:1}})
-    .then(function(st){ micStream=st; go(); })
-    .catch(function(){
-      vrHold=false; vrLabel(false); showRecLive(false);
-      if(!recWarned){ recWarned=true; toast("마이크를 열지 못했습니다."); }
-    });
+  vrHold=true; vrWanted=true; vrLabel(true);
+  stopAllAudio(); clearClip();
+  chainList=[]; showChainBar(false);
+  /* 글자 인식 없이 목소리만 담는다. 담은 소리는 듣기·낱말 고르기·이어 읽기에 쓴다 */
+  startRec("녹음 중 — "+S.speaker+" 말해 보세요");
 }
 function vrUp(){
   if(!vrHold) return;
   vrHold=false; vrLabel(false);
+  stopRec();
   stopMeter(); showRecLive(false); idleRelease();
+  renderLive();
 }
 function renderRecBtn(){
   var b=$("#recBtn"); if(!b) return;
