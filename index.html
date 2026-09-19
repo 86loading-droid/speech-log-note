@@ -58,6 +58,7 @@
 .btn.danger{color:var(--danger);border-color:var(--danger)}
 .btn.sm{min-height:36px;padding:6px 10px;font-size:.85rem;border-width:1px}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.dim{opacity:.55}
 
 /* ===== 탭 ===== */
 .tabs{display:flex;gap:6px;background:var(--surface2);padding:6px;border-radius:12px;margin:14px 0}
@@ -619,8 +620,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     </div>
 
     <label class="f" style="margin-top:14px">구간 고르기</label>
-    <div class="wrange"><label for="wStart">시작</label><input type="range" id="wStart" min="0" max="100" step="1" value="0" aria-label="구간 시작"></div>
-    <div class="wrange"><label for="wEnd">끝</label><input type="range" id="wEnd" min="0" max="100" step="1" value="100" aria-label="구간 끝"></div>
+    <div class="wrange"><label for="wStart">시작</label><input type="range" id="wStart" min="0" max="1000" step="1" value="0" aria-label="구간 시작"></div>
+    <div class="wrange"><label for="wEnd">끝</label><input type="range" id="wEnd" min="0" max="1000" step="1" value="1000" aria-label="구간 끝"></div>
     <div class="wspan" id="wSpan">녹음을 불러오는 중…</div>
 
     <div class="chiprow" style="margin-top:12px">
@@ -1422,14 +1423,17 @@ function audioCtx(){
 }
 function decodeClip(blob, cb){
   var c=audioCtx(); if(!c) return cb(null);
+  var done=false;
+  function once(v){ if(done) return; done=true; cb(v); }
   var fr=new FileReader();
   fr.onload=function(){
     try{
-      var r=c.decodeAudioData(fr.result, function(buf){ cb(buf); }, function(){ cb(null); });
-      if(r && r.then) r.then(function(b){ cb(b); }).catch(function(){ cb(null); });
-    }catch(e){ cb(null); }
+      /* 브라우저에 따라 콜백과 프라미스를 모두 부르므로 한 번만 받는다 */
+      var r=c.decodeAudioData(fr.result, once, function(){ once(null); });
+      if(r && r.then) r.then(once).catch(function(){ once(null); });
+    }catch(e){ once(null); }
   };
-  fr.onerror=function(){ cb(null); };
+  fr.onerror=function(){ once(null); };
   fr.readAsArrayBuffer(blob);
 }
 /* 구간 표본을 모노로 뽑는다 */
@@ -1516,12 +1520,12 @@ function wRenderChips(){
   });
 }
 function openWord(){
-  if(!recBlob){ toast("먼저 학생이 말한 소리를 녹음하십시오."); return; }
+  if(!recBlob){ toast("먼저 마이크 버튼을 누른 채로 학생이 말하게 하십시오. 녹음된 소리가 있어야 낱말을 고를 수 있습니다."); return; }
   stopAllAudio();
   wWord=""; wBuf=null; wDur=0; sylClose();
   $("#wordPanel").hidden=false; $("#ovl").hidden=false;
-  $("#wStart").value=0; $("#wEnd").value=1000;
   $("#wStart").max=1000; $("#wEnd").max=1000;
+  $("#wStart").value=0; $("#wEnd").value=1000;
   $("#wSave").disabled=true; $("#wSyl").disabled=true;
   $("#wordWho").textContent="현재 학생: "+(S.speaker||"미지정");
   $("#wSpan").textContent="녹음을 불러오는 중…";
@@ -1627,13 +1631,20 @@ function sylPlay(i, btn){
   playBlob(bufToWav(wBuf,p.a,p.b), btn, "__syl"+i, null, 1);
 }
 function sylSaveAll(){
-  var list=sylParts.filter(function(p){ return p.on && (p.b-p.a)>=0.06; });
-  if(!list.length){ toast("저장할 음절이 없습니다."); return; }
+  var picked=sylParts.filter(function(p){ return p.on; });
+  var list=picked.filter(function(p){ return (p.b-p.a)>=0.06; });
+  var tooShort=picked.filter(function(p){ return (p.b-p.a)<0.06; }).map(function(p){ return p.ch; });
+  if(!list.length){
+    toast("저장할 음절이 없습니다."+(tooShort.length?" 구간이 0.06초보다 짧습니다. 시작·끝을 더 넓게 잡으십시오.":""));
+    return;
+  }
   var i=0, done=0;
   (function next(){
     if(i>=list.length){
       saveWM(); renderWM(); renderAudioInfo(); renderLive();
-      toast("음절 "+done+"개를 저장했습니다. 1시간 뒤 지워집니다.");
+      toast("음절 "+done+"개를 저장했습니다."+
+            (tooShort.length?(" "+tooShort.join("·")+"은(는) 구간이 너무 짧아 건너뛰었습니다."):"")+
+            " 1시간 뒤 지워집니다.");
       closeWord(); return;
     }
     var p=list[i++];
@@ -1906,6 +1917,7 @@ function chainToggle(){
   if(chainOn || anyPlaying()){ stopAllAudio(); return; }
   if(editing) endEdit();
   if(wantListen){ endListen(false); }
+  if(!curText().trim()){ toast("화면에 읽을 글이 없습니다. 먼저 말하거나 수정으로 입력하십시오."); return; }
   var plan=chainPlan();
   if(!plan.length){ toast("화면에 읽을 글이 없습니다."); return; }
   chainList=plan; chainIdx=-1;
@@ -1927,10 +1939,9 @@ function chainToggle(){
       if(!wav){ chainOn=false; setChainBusy(false); toast("소리를 만들지 못했습니다."); return; }
       chainMarks=marks;
       /* 어절이 시작되는 시각에 맞춰 표시를 옮긴다 */
-      var mi=0;
       plan.forEach(function(x,i){
         if(x.kind==="none") return;
-        var mk=marks[mi++]; if(!mk) return;
+        var mk=marks[i]; if(!mk) return;
         chainTimers.push(setTimeout(function(){
           if(!chainOn) return;
           chainIdx=i; renderChainBar();
@@ -2101,7 +2112,8 @@ function renderLive(){
   if(cb && !cb.classList.contains("playing")){
     var ct=curText().trim();
     var hit=ct?chainHits():0;
-    cb.disabled=!hit;
+    cb.disabled=false;                 /* 눌러서 사유를 확인할 수 있게 둔다 */
+    cb.classList.toggle("dim", !hit);
     cb.textContent="🗣️ 이어 읽기";
     var tot=ct?ct.split(/\s+/).filter(Boolean).length:0;
     cb.title = !ct ? "화면에 읽을 글이 없습니다"
@@ -2110,7 +2122,8 @@ function renderLive(){
   }
   var wb=$("#wordBtn");
   if(wb){
-    wb.disabled=!recBlob;
+    wb.disabled=false;
+    wb.classList.toggle("dim", !recBlob);
     wb.title=recBlob?"방금 녹음에서 한 낱말만 잘라 모델로 남깁니다":"녹음된 목소리가 없습니다";
   }
 }
