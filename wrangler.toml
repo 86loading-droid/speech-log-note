@@ -2,14 +2,13 @@ name = "speech-log-voice"
 main = "worker.js"
 compatibility_date = "2026-01-01"
 
-# 저장소(KV·R2·D1)를 쓰지 않습니다. 음성과 텍스트는 거쳐 갈 뿐 남지 않습니다.
+# 저장소(KV·R2·D1)를 쓰지 않습니다. 음성과 글은 거쳐 갈 뿐 남지 않습니다.
 
 [vars]
 ALLOW_ORIGIN = "https://86loading-droid.github.io"
-MODEL_ID = "eleven_multilingual_v2"
-MAX_CHARS = "300"
-# ZERO_LOG = "1"   # 기업 요금제에서만 사용
+SIZE = "0.6b"
+MAX_CHARS = "200"
 
 # 비밀값은 파일에 적지 말고 아래 명령으로 넣으십시오.
-#   npx wrangler secret put XI_KEY
+#   npx wrangler secret put FAL_KEY
 #   npx wrangler secret put APP_TOKEN

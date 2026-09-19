@@ -135,6 +135,15 @@
 .chainbar .cw.now{background:var(--ok);color:#fff;border-color:var(--ok)}
 .chainbar .cnote{font-size:.76rem;color:var(--text2);flex:1 1 140px;min-width:0}
 
+/* 복제 음성이 나오는 중임을 분명히 알리는 표시 */
+.clnlive{display:flex;align-items:center;gap:10px;border:3px dashed var(--accent);
+  border-radius:12px;padding:8px 12px;background:var(--surface);flex-wrap:wrap}
+.clnlive[hidden]{display:none}
+.clnlive .cdot{width:16px;height:16px;border-radius:4px;background:var(--accent);flex:none;
+  animation:p 1s infinite}
+.clnlive .ctxt{font-weight:800;color:var(--accent);font-size:1.05rem;white-space:nowrap}
+.clnlive .cn{font-size:.78rem;color:var(--text2);flex:1 1 160px;min-width:0}
+
 }
 @media(max-width:430px){
   .stagebar .chip{padding:8px 12px;min-height:40px;font-size:.9rem}
@@ -356,6 +365,11 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
           <div class="livebox" id="liveBox" aria-live="polite" aria-atomic="false">
             <span class="ph">버튼을 누르고 있는 동안 말하면<br>이 자리에 글자가 나타납니다.</span>
           </div>
+          <div class="clnlive" id="clnLive" hidden aria-hidden="true">
+            <span class="cdot"></span>
+            <span class="ctxt">복제 음성</span>
+            <span class="cn">학생 목소리를 복제해 만든 소리입니다. 학생이 실제로 낸 소리가 아니며 기록에 저장되지 않습니다.</span>
+          </div>
           <div class="chainbar" id="chainBar" hidden aria-hidden="true">
             <span class="clab">이어 읽기</span>
             <span id="chainWords" style="display:flex;gap:6px;flex-wrap:wrap"></span>
@@ -373,6 +387,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
           <div class="actrow">
             <button class="btn act" id="speakBtn" disabled>🔊 내 목소리 듣기</button>
             <button class="btn act" id="drillBtn" disabled>🐢 천천히 반복</button>
+            <button class="btn act" id="clnBtn" hidden>🎙️ 복제 읽기</button>
             <button class="btn act" id="chainBtn" disabled>🗣️ 이어 읽기</button>
             <button class="btn act" id="wordBtn" disabled>✂️ 낱말 고르기</button>
             <button class="btn act" id="wmBtn">📚 낱말 모델</button>
@@ -381,7 +396,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
             <button class="btn act" id="clearBtn" title="기록하지 않고 화면을 지웁니다">🧹 지우기</button>
           </div>
         </div>
-        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 낱말 고르기는 방금 녹음에서 바르게 낸 한 낱말만 잘라 학생별 모델로 남기고, 낱말 모델에서 다시 듣습니다. 이어 읽기는 저장해 둔 낱말과 음절을 이어 붙여 화면의 글을 읽어 줍니다. 모든 음성과 낱말 모델은 1시간 뒤 자동으로 지워집니다. 목소리 녹음 버튼은 글자 인식 없이 목소리만 담습니다. 담은 소리도 듣기·낱말 고르기·이어 읽기에 그대로 쓸 수 있습니다.</p>
+        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 낱말 고르기는 방금 녹음에서 바르게 낸 한 낱말만 잘라 학생별 모델로 남기고, 낱말 모델에서 다시 듣습니다. 이어 읽기는 저장해 둔 낱말과 음절을 이어 붙여 화면의 글을 읽어 줍니다. 모든 음성과 낱말 모델은 1시간 뒤 자동으로 지워집니다. 복제 읽기는 학생 목소리를 복제해 화면의 글을 그대로 읽어 줍니다. 미리 잘라 둔 낱말이 없어도 되지만 바깥 서버를 쓰고 비용이 듭니다. 목소리 녹음 버튼은 글자 인식 없이 목소리만 담습니다. 담은 소리도 듣기·낱말 고르기·이어 읽기에 그대로 쓸 수 있습니다.</p>
         </div>
       </div>
     </section>
@@ -583,6 +598,26 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     <p class="note">학생의 음성은 개인정보입니다. 화자는 실명 대신 익명 코드로 등록하시고, 연구 자료로 쓰실 경우 보호자 동의와 기관생명윤리위원회 심의를 먼저 받으십시오.</p>
 
     <hr class="hr">
+    <h2>목소리 복제로 읽기 <span class="sub">유료 · 쓴 만큼 과금</span></h2>
+    <p class="note">학생 목소리를 복제해 화면의 글을 그대로 읽어 줍니다. 낱말이나 음절을 미리 잘라 두지 않아도 되며, 처음 보는 문장도 읽습니다. 합성은 학교 밖 서버에서 이루어지므로 보호자 서면 동의를 받은 학생에게만 쓰십시오.</p>
+    <div class="wkeep" style="border-color:var(--accent);color:var(--accent)">비용 안내 — 무료가 아닙니다. 목소리 등록은 참조 음성 1분에 약 0.0008달러, 읽기는 1000자에 약 0.07달러입니다. 20자 문장 한 번이 약 2원, 하루 100문장이면 약 200원 수준입니다. 구독이 아니라 쓴 만큼만 청구됩니다.</div>
+
+    <label class="f" for="clnUrl">복제 서버 주소</label>
+    <input type="url" id="clnUrl" placeholder="예: https://speech-log-voice.&lt;계정&gt;.workers.dev" autocomplete="off">
+
+    <label class="f" for="clnToken">공유 암호</label>
+    <input type="password" id="clnToken" placeholder="서버에 설정한 APP_TOKEN" autocomplete="off">
+
+    <div class="row-end" style="margin-top:10px">
+      <button class="btn sm" id="clnTest">연결 확인</button>
+    </div>
+    <p class="note" id="clnInfo">복제 서버 주소를 넣지 않으면 복제 읽기 버튼이 화면에 나타나지 않습니다.</p>
+
+    <h2 style="font-size:.95rem;margin-top:16px">학생별 목소리 등록</h2>
+    <p class="note">지금 화면에 담겨 있는 녹음을 참조로 보내 그 학생의 목소리를 만듭니다. 10초 이상이면 실용적이고 30초 이상이면 더 닮습니다. 이 기기에는 목소리 파일 주소만 저장되며, 사용을 마치면 해제하십시오.</p>
+    <div id="clnManage" style="margin-top:10px"></div>
+
+    <hr class="hr">
     <h2>자주 틀리는 말 교정</h2>
     <p class="note">특정 낱말이 반복해서 잘못 인식되면 규칙을 등록하십시오. 인식된 문장에서 자동으로 바꿔 줍니다. 바뀌기 전 원문도 함께 보관되어 통계 탭에서 실제 인식률을 분석할 수 있습니다.</p>
     <div class="grid2" style="margin-top:10px">
@@ -676,7 +711,8 @@ var S = Object.assign({
   recorder:"", speakers:["학생 1"], speaker:"학생 1",
   livePt:44, recPt:20, theme:"", lang:"ko-KR", autoSave:true, wakeLock:true,
   holdSec:30, fixes:[], mode:"push",
-  recAudio:true, recBps:16000, drillRate:0.7, drillN:10
+  recAudio:true, recBps:16000, drillRate:0.7, drillN:10,
+  clnUrl:"", clnToken:""
 }, store.get(K_SET,{}));
 /* 보관 시간은 1시간으로 고정한다. 설정으로 늘리거나 줄이지 않는다. */
 var KEEP_MIN = 60;
@@ -690,8 +726,8 @@ if(["push","hold","cont"].indexOf(S.mode)<0) S.mode="push";
 function normSpeakers(){
   var arr=Array.isArray(S.speakers)?S.speakers:[];
   S.speakers=arr.map(function(x){
-    return (typeof x==="string") ? {name:x, rec:true}
-                                 : {name:(x&&x.name)||"학생", rec:!(x&&x.rec===false)};
+    return (typeof x==="string") ? {name:x, rec:true, cln:null}
+                                 : {name:(x&&x.name)||"학생", rec:!(x&&x.rec===false), cln:(x&&x.cln)||null};
   }).filter(function(x){return !!x.name;});
   if(!S.speakers.length) S.speakers=[{name:"학생 1", rec:true}];
   var has=S.speakers.some(function(x){return x.name===S.speaker;});
@@ -803,6 +839,7 @@ function renderSpeakers(){
     var o=document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o);
   });
   sel.value=cur;
+  if(typeof renderCln==="function") renderCln();
 }
 function renderFilters(){ renderSpeakers(); }
 
@@ -1331,10 +1368,11 @@ function stopAllAudio(){
   slowOn=false;
   if(slowT){ clearTimeout(slowT); slowT=null; }
   if(typeof chainStop==="function") chainStop();
+  if(typeof clnStop==="function") clnStop();
   stopClip(); setSpeakState(false);
   restoreBtn($("#drillBtn"));
 }
-function anyPlaying(){ return !!(playingId || slowOn || chainOn); }
+function anyPlaying(){ return !!(playingId || slowOn || chainOn || clnOn); }
 
 /* ===== 내 목소리 재생 (기계 음성은 쓰지 않는다) ===== */
 function playLabel(){ return "🔊 내 목소리 듣기"; }
@@ -1958,6 +1996,135 @@ function chainToggle(){
   });
 }
 
+
+/* ===== 목소리 복제로 읽기 (유료 · 쓴 만큼) =====
+   학생 목소리를 복제해 임의의 문장을 읽는다. 합성은 중계 서버를 거쳐
+   바깥 서비스에서 이루어진다. 결과는 메모리에만 두고 기록에 넣지 않는다. */
+var CLN={}, clnOn=false, clnAbort=false;
+
+function clnBase(){ return String(S.clnUrl||"").trim().replace(/\/+$/,""); }
+function clnOnOff(){ return !!clnBase(); }
+function clnHead(extra){
+  var h=Object.assign({"Content-Type":"application/json"}, extra||{});
+  if(S.clnToken) h["X-App-Token"]=S.clnToken;
+  return h;
+}
+function curCln(){ var x=spkOf(S.speaker); return (x && x.cln && x.cln.url) ? x.cln.url : ""; }
+function showClnLive(on){
+  var el=$("#clnLive"); if(!el) return;
+  el.hidden=!on; el.setAttribute("aria-hidden", on?"false":"true");
+  fitStage();
+}
+function setClnBusy(on,label){
+  var b=$("#clnBtn"); if(!b) return;
+  b.classList.toggle("playing",!!on);
+  b.textContent = on ? (label||"⏹️ 멈추기") : "🎙️ 복제 읽기";
+}
+function clnStop(){
+  clnOn=false; clnAbort=true; setClnBusy(false); showClnLive(false);
+}
+
+/* 연결 확인 */
+function clnTest(){
+  var base=clnBase(), el=$("#clnInfo");
+  if(!base){ el.textContent="복제 서버 주소를 먼저 입력하십시오."; return; }
+  el.textContent="확인 중…";
+  fetch(base+"/health",{headers:clnHead()}).then(function(r){ return r.json(); }).then(function(d){
+    if(d && d.ok){
+      el.textContent="연결됨 · "+(d.provider||"?")+" · 키 "+(d.keyed?"설정됨":"없음")+
+        " · 1회 최대 "+(d.maxChars||"?")+"자";
+      if(!d.keyed) el.textContent+=" · 서버에 API 키가 없어 읽기가 되지 않습니다.";
+    } else el.textContent="응답이 올바르지 않습니다.";
+  }).catch(function(){ el.textContent="연결하지 못했습니다. 주소와 인터넷 상태를 확인하십시오."; });
+}
+
+/* 목소리 등록: 지금 녹음을 참조로 보낸다 */
+function clnRegister(sp, btn){
+  var base=clnBase();
+  if(!base){ toast("설정에서 복제 서버 주소를 먼저 넣으십시오."); return; }
+  if(!recBlob){ toast("먼저 그 학생의 목소리를 녹음하십시오. 기록 화면에서 목소리 녹음 버튼을 쓰시면 됩니다."); return; }
+  btn.disabled=true; btn.textContent="등록 중…";
+  var fr=new FileReader();
+  fr.onload=function(){
+    fetch(base+"/voice",{ method:"POST", headers:clnHead(),
+      body:JSON.stringify({ audio:String(fr.result) }) })
+      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,d:d}; }); })
+      .then(function(x){
+        if(!x.ok || !x.d.voiceUrl){ toast("등록하지 못했습니다. "+((x.d&&x.d.error)||"")); return; }
+        sp.cln={ url:x.d.voiceUrl, at:Date.now() };
+        saveSet(); renderCln(); renderLive();
+        toast(sp.name+" 목소리를 등록했습니다.");
+      })
+      .catch(function(){ toast("등록 중 통신 오류가 발생했습니다."); })
+      .then(function(){ btn.disabled=false; renderCln(); });
+  };
+  fr.onerror=function(){ btn.disabled=false; renderCln(); toast("녹음을 읽지 못했습니다."); };
+  fr.readAsDataURL(recBlob);
+}
+function clnRelease(sp){
+  if(!sp.cln) return;
+  if(!confirm(sp.name+" 학생의 등록된 목소리를 지웁니다.")) return;
+  var u=sp.cln.url;
+  sp.cln=null; saveSet(); renderCln(); renderLive();
+  Object.keys(CLN).forEach(function(k){ if(k.indexOf(u+"\n")===0) delete CLN[k]; });
+  toast("해제했습니다. 바깥 서비스에 남은 목소리 파일은 그쪽 보관 정책을 따릅니다.");
+}
+function renderCln(){
+  var m=$("#clnManage"); if(!m) return;
+  m.innerHTML="";
+  S.speakers.forEach(function(sp){
+    var row=document.createElement("div"); row.className="fixrow";
+    var left=document.createElement("div");
+    var reg=!!(sp.cln && sp.cln.url);
+    left.innerHTML='<div class="ft"></div><div class="fh"></div>';
+    left.querySelector(".ft").textContent=sp.name;
+    left.querySelector(".fh").textContent= reg
+      ? "등록됨 · "+new Date(sp.cln.at||Date.now()).toLocaleString("ko-KR")
+      : "등록 안 됨";
+    var b=document.createElement("button");
+    b.className="btn sm"+(reg?" danger":" primary");
+    b.textContent=reg?"해제":"목소리 등록";
+    b.onclick=function(){ reg ? clnRelease(sp) : clnRegister(sp,b); };
+    row.appendChild(left); row.appendChild(b); m.appendChild(row);
+  });
+}
+
+/* 복제 읽기 */
+function clnSpeak(voiceUrl, text, cb){
+  var key=voiceUrl+"\n"+text;
+  if(CLN[key]) return cb(null, CLN[key]);
+  fetch(clnBase()+"/speak",{ method:"POST", headers:clnHead(),
+    body:JSON.stringify({ voiceUrl:voiceUrl, text:text }) })
+    .then(function(r){
+      if(!r.ok) return r.json().catch(function(){return {};}).then(function(d){
+        throw new Error((d&&d.error)||("오류 "+r.status));
+      });
+      return r.blob();
+    })
+    .then(function(b){ CLN[key]=b; cb(null,b); })
+    .catch(function(e){ cb(e); });
+}
+function clnToggle(){
+  if(clnOn || anyPlaying()){ stopAllAudio(); return; }
+  if(!clnOnOff()){ toast("설정에서 복제 서버 주소를 넣으십시오."); return; }
+  var vu=curCln();
+  if(!vu){ toast(S.speaker+" 학생의 목소리가 등록되지 않았습니다. 설정에서 등록하십시오."); return; }
+  if(editing) endEdit();
+  if(wantListen){ endListen(false); }
+  var text=curText().trim();
+  if(!text){ toast("읽을 내용이 없습니다."); return; }
+
+  clnOn=true; clnAbort=false; setClnBusy(true,"⏳ 만드는 중…"); showClnLive(true);
+  clnSpeak(vu, text, function(err, blob){
+    if(clnAbort || !clnOn) return;
+    if(err){ clnStop(); toast("읽지 못했습니다. "+err.message); return; }
+    setClnBusy(true,"⏹️ 멈추기");
+    playBlob(blob, null, "__cln", function(){
+      clnOn=false; setClnBusy(false); showClnLive(false);
+    }, 1);
+  });
+}
+
 /* ===== 기록 전 수정 ===== */
 function startEdit(){
   if(editing) return;
@@ -2109,6 +2276,16 @@ function renderLive(){
     sp.disabled=!recBlob;
     sp.textContent=playLabel();
     sp.title=recBlob?"학생이 방금 말한 소리를 그대로 들려줍니다":"녹음된 목소리가 없습니다";
+  }
+  var clb=$("#clnBtn");
+  if(clb && !clb.classList.contains("playing")){
+    clb.hidden=!clnOnOff();
+    var ct2=curText().trim(), vu=curCln();
+    clb.classList.toggle("dim", !(ct2 && vu));
+    clb.textContent="🎙️ 복제 읽기";
+    clb.title = !ct2 ? "화면에 읽을 글이 없습니다"
+              : !vu ? (S.speaker+" 학생의 목소리가 등록되지 않았습니다")
+              : "화면의 글을 "+S.speaker+" 학생 목소리로 읽어 줍니다 (복제 · 유료)";
   }
   var cb=$("#chainBtn");
   if(cb && !cb.classList.contains("playing")){
@@ -2334,6 +2511,14 @@ function bind(){
   $("#speakBtn").onclick=listenBack;
   $("#drillBtn").onclick=slowToggle;
   $("#chainBtn").onclick=chainToggle;
+  $("#clnBtn").onclick=clnToggle;
+  $("#clnUrl").onchange=function(){
+    S.clnUrl=this.value.trim(); saveSet(); renderLive();
+    $("#clnInfo").textContent = S.clnUrl ? "저장했습니다. 연결 확인을 눌러 보십시오."
+      : "복제 서버 주소를 넣지 않으면 복제 읽기 버튼이 화면에 나타나지 않습니다.";
+  };
+  $("#clnToken").onchange=function(){ S.clnToken=this.value; saveSet(); };
+  $("#clnTest").onclick=clnTest;
   $("#wordBtn").onclick=openWord;
   $("#wordClose").onclick=closeWord;
   $("#wmBtn").onclick=openWM;
@@ -2530,7 +2715,9 @@ function init(){
   }
   $("#recChip").setAttribute("aria-pressed",S.recAudio?"true":"false");
   $("#recRateSel").value=String(S.recBps);
-  renderWM();
+  $("#clnUrl").value=S.clnUrl||"";
+  $("#clnToken").value=S.clnToken||"";
+  renderWM(); renderCln();
   renderRecBtn();
   purgeAudio(false);
   setInterval(function(){ purgeAudio(false); }, 60000);
