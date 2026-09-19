@@ -77,12 +77,10 @@ localStorage
 speech-log/
 ├─ index.html          # 애플리케이션 전체 (HTML + CSS + JS 단일 파일, 외부 의존성 없음)
 ├─ README.md           # 이 문서
-├─ worker.js           # (선택) 목소리 복제 중계 서버 — Cloudflare Workers 코드
-├─ wrangler.toml       # (선택) 중계 서버 배포 설정
-└─ space/              # (선택) 무료 경로용 허깅페이스 Space
-   ├─ app.py           # XTTS-v2 한국어 복제 읽기
-   ├─ requirements.txt
-   └─ README.md
+├─ colab/              # (선택) 무료 경로 — 구글 코랩 노트북
+│  └─ speech_log_voice_colab.ipynb
+├─ worker.js           # (선택) 유료 경로 중계 서버 — Cloudflare Workers 코드
+└─ wrangler.toml       # (선택) 중계 서버 배포 설정
 ```
 
 앱 자체에는 외부 라이브러리·빌드 도구·서버가 전혀 없습니다. `index.html` 하나만 있으면 동작합니다. `worker.js` 와 `wrangler.toml` 은 6-5의 복제 읽기를 쓸 때만 필요하며, GitHub Pages 배포와는 무관하게 Cloudflare 에 따로 올립니다.
@@ -372,15 +370,16 @@ https://<사용자명>.github.io/speech-log/
 
 ### 두 가지 경로
 
-| 항목 | 무료 경로 (권장) | 유료 경로 |
+| 항목 | 무료 경로 | 유료 경로 |
 |---|---|---|
-| 쓰는 곳 | 교수님 계정의 허깅페이스 Space + XTTS-v2 | fal.ai Qwen3-TTS |
+| 쓰는 곳 | 구글 코랩 무료 GPU + XTTS-v2 | fal.ai Qwen3-TTS |
 | 비용 | 0원. 카드 등록 없음 | 등록 1분 약 0.0008달러, 읽기 1000자 약 0.07달러 |
-| 한도 | 무료 계정 하루 GPU 5분. 짧은 문장 60~150회 | 한도 없음 |
-| 응답 | 첫 호출은 Space 가 깨어나느라 30~60초. 이후 5~15초 | 2~5초 |
-| 준비 | Space 하나 만들고 파일 세 개 올리기 | 계정 가입과 결제 수단 등록 |
+| 한도 | 코랩 정책에 따름. 한 번에 최대 12시간, 90분 방치 시 끊김 | 한도 없음 |
+| 응답 | 첫 문장 20~40초, 이후 3~8초 | 2~5초 |
+| 준비 | 노트북 열어 칸 두 개 실행 | 계정 가입과 결제 수단 등록 |
+| 불편한 점 | 수업마다 다시 실행하고 바뀐 주소를 앱에 넣어야 함 | 없음 |
 
-두 경로 모두 같은 중계 서버(`worker.js`)를 씁니다. `BACKEND` 값만 바꾸면 됩니다.
+허깅페이스 Space 는 정책이 바뀌어 Gradio Space 생성에 PRO 구독이 필요합니다. 무료 계정은 Static Space 만 만들 수 있어 이 용도로는 쓸 수 없습니다.
 
 ### 구조
 
@@ -393,23 +392,34 @@ https://<사용자명>.github.io/speech-log/
 
 앱은 정적 페이지라 토큰을 둘 곳이 없습니다. 토큰을 보관하고 요청만 넘겨 주는 중계를 Cloudflare Workers 무료 요금제에 둡니다. 중계는 KV·R2·D1 을 쓰지 않으므로 음성과 글이 남지 않습니다.
 
-### 무료 경로 준비 절차
+### 무료 경로 — 구글 코랩
 
-1. 허깅페이스에 가입합니다. ZeroGPU 를 쓰려면 이메일 인증과 가입 30일 경과가 필요합니다.
-2. New Space 를 만듭니다. SDK 는 Gradio, Visibility 는 Private 를 권합니다.
-3. 저장소의 `space/` 폴더에 있는 `app.py`, `requirements.txt`, `README.md` 를 그 Space 에 올립니다.
-4. Space 설정에서 Hardware 를 ZeroGPU 로 바꿉니다. 무료 계정도 2개까지 만들 수 있습니다.
-5. 허깅페이스 설정에서 읽기 토큰을 만듭니다.
-6. `worker.js` 와 `wrangler.toml` 을 내려받아 `npx wrangler deploy` 를 실행합니다.
-7. 비밀값을 넣습니다.
-   - `npx wrangler secret put APP_TOKEN` — 앱이 보낼 공유 암호
-   - `npx wrangler secret put HF_TOKEN` — 허깅페이스 읽기 토큰
-8. `wrangler.toml` 의 `SPACE` 에 Space 주소를, `ALLOW_ORIGIN` 에 앱 주소를 넣습니다.
-9. 배포 주소와 공유 암호를 앱 설정에 넣고 연결 확인을 누릅니다.
+저장소의 `colab/speech_log_voice_colab.ipynb` 를 구글 코랩에서 엽니다. 중계 서버가 따로 필요 없습니다. 노트북이 만드는 주소로 앱이 바로 접속합니다.
 
-### 유료 경로로 바꾸려면
+1. 런타임 → 런타임 유형 변경 → 하드웨어 가속기를 T4 GPU 로 바꿉니다.
+2. 1번 칸을 실행합니다. 설치에 5~10분 걸리며 처음 한 번만 하면 됩니다.
+3. 2번 칸의 공유 암호를 아무 문자열로 바꾸고 실행합니다.
+4. 마지막에 나오는 `https://….trycloudflare.com` 주소와 공유 암호를 앱 설정에 넣습니다.
+5. 수업이 끝나면 탭을 닫습니다.
 
-`wrangler.toml` 의 `BACKEND` 를 `"fal"` 로 고치고 `npx wrangler secret put FAL_KEY` 로 fal.ai 키를 넣으면 됩니다. 앱은 연결 확인 때 서버가 알려 주는 종류에 맞춰 전송 방식을 자동으로 바꿉니다.
+코랩 무료는 한 번에 최대 12시간이고 90분쯤 손대지 않으면 끊깁니다. 끊기면 2번 칸만 다시 실행하고 새 주소를 앱에 다시 넣으십시오. 실행할 때마다 주소가 바뀝니다.
+
+노트북이 띄우는 서버는 앱이 쓰는 것과 같은 규약을 따릅니다.
+
+| 경로 | 하는 일 |
+|---|---|
+| `GET /health` | 연결·한도 확인 |
+| `POST /voice` | 참조 음성(파일)을 받아 목소리 번호를 돌려줌 |
+| `POST /speak` | 글과 목소리 번호로 합성 음성(wav)을 돌려줌 |
+
+### 유료 경로 — fal.ai
+
+1. fal.ai 에 가입하고 API 키를 발급받습니다.
+2. `worker.js` 와 `wrangler.toml` 을 내려받아 `wrangler.toml` 의 `BACKEND` 를 `"fal"` 로 고칩니다.
+3. `npx wrangler deploy` 후 `npx wrangler secret put APP_TOKEN` 과 `npx wrangler secret put FAL_KEY` 를 실행합니다.
+4. 배포 주소와 공유 암호를 앱 설정에 넣고 연결 확인을 누릅니다.
+
+앱은 연결 확인 때 서버가 알려 주는 종류에 맞춰 전송 방식을 자동으로 바꿉니다. 코랩은 파일을 그대로, fal.ai 는 데이터 URI 로 보냅니다.
 
 ### 학생별 목소리 등록
 

@@ -600,10 +600,10 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     <hr class="hr">
     <h2>목소리 복제로 읽기 <span class="sub">무료 경로와 유료 경로</span></h2>
     <p class="note">학생 목소리를 복제해 화면의 글을 그대로 읽어 줍니다. 낱말이나 음절을 미리 잘라 두지 않아도 되며, 처음 보는 문장도 읽습니다. 합성은 학교 밖 서버에서 이루어지므로 보호자 서면 동의를 받은 학생에게만 쓰십시오.</p>
-    <div class="wkeep" style="border-color:var(--ok);color:var(--ok)">무료 경로 — 교수님 계정의 허깅페이스 Space 에 XTTS-v2 를 올려 쓰는 방식입니다. 카드 등록 없이 0원이며, 무료 계정 기준 하루 GPU 5분이 제공됩니다. 짧은 문장 기준 하루 60~150회 수준이고, 한도를 넘기면 24시간 뒤 다시 채워집니다. 처음 호출할 때 Space 가 깨어나느라 30~60초가 걸릴 수 있습니다.</div>
+    <div class="wkeep" style="border-color:var(--ok);color:var(--ok)">무료 경로 — 구글 코랩 무료 GPU 에서 XTTS-v2 를 돌리는 방식입니다. 카드 등록 없이 0원입니다. 저장소의 코랩 노트북을 열어 칸 두 개를 실행하면 주소와 공유 암호가 나옵니다. 코랩은 한 번에 최대 12시간이고 손을 떼면 90분쯤 뒤 끊기며, 다시 실행하면 주소가 바뀌므로 앱에 새 주소를 넣으셔야 합니다.</div>
     <div class="wkeep" style="border-color:var(--accent);color:var(--accent)">유료 경로 — fal.ai 를 쓰면 한도 없이 즉시 응답합니다. 등록은 1분에 약 0.0008달러, 읽기는 1000자에 약 0.07달러입니다. 20자 문장 한 번이 약 2원이고 구독이 아니라 쓴 만큼만 청구됩니다.</div>
 
-    <label class="f" for="clnUrl">복제 서버 주소</label>
+    <label class="f" for="clnUrl">복제 서버 주소 <span class="sub">코랩이면 trycloudflare.com 주소</span></label>
     <input type="url" id="clnUrl" placeholder="예: https://speech-log-voice.&lt;계정&gt;.workers.dev" autocomplete="off">
 
     <label class="f" for="clnToken">공유 암호</label>
