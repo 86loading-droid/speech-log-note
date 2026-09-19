@@ -358,7 +358,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
           <div class="chainbar" id="chainBar" hidden aria-hidden="true">
             <span class="clab">이어 읽기</span>
             <span id="chainWords" style="display:flex;gap:6px;flex-wrap:wrap"></span>
-            <span class="cnote">초록색 낱말만 학생 목소리로 나옵니다. 줄이 그어진 낱말은 아직 모델이 없습니다.</span>
+            <span class="cnote" id="chainNote">초록색 낱말만 학생 목소리로 나옵니다. 줄이 그어진 낱말은 아직 모델이 없습니다.</span>
           </div>
           <textarea class="liveedit" id="liveEdit" hidden aria-label="기록 전 내용 수정"></textarea>
           <div class="holdbar" id="holdBar" hidden aria-hidden="true"><i></i></div>
@@ -380,7 +380,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
             <button class="btn act" id="clearBtn" title="기록하지 않고 화면을 지웁니다">🧹 지우기</button>
           </div>
         </div>
-        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 낱말 고르기는 방금 녹음에서 바르게 낸 한 낱말만 잘라 학생별 모델로 남기고, 낱말 모델에서 다시 듣습니다. 이어 읽기는 저장해 둔 낱말 모델을 문장 순서대로 이어 들려줍니다. 모든 음성과 낱말 모델은 1시간 뒤 자동으로 지워집니다. 목소리 녹음 버튼은 소리가 들어오는 것을 보여 주는 용도이며 저장하지 않습니다.</p>
+        <p class="note" id="micNote">말하기 버튼을 누르는 동안 글자가 나오고, 녹음이 켜진 학생은 목소리도 담깁니다. 내 목소리 듣기는 방금 말한 소리를 그대로, 천천히 반복은 같은 소리를 느린 속도로 여러 번 들려줍니다. 기계 음성은 쓰지 않습니다. 낱말 고르기는 방금 녹음에서 바르게 낸 한 낱말만 잘라 학생별 모델로 남기고, 낱말 모델에서 다시 듣습니다. 이어 읽기는 저장해 둔 낱말과 음절을 이어 붙여 화면의 글을 읽어 줍니다. 모든 음성과 낱말 모델은 1시간 뒤 자동으로 지워집니다. 목소리 녹음 버튼은 소리가 들어오는 것을 보여 주는 용도이며 저장하지 않습니다.</p>
         </div>
       </div>
     </section>
@@ -626,7 +626,17 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     <div class="chiprow" style="margin-top:12px">
       <button class="btn" id="wPlay">▶ 구간 들어 보기</button>
       <button class="btn" id="wPlaySlow">🐢 느리게</button>
-      <button class="btn primary" id="wSave" disabled>💾 낱말 모델로 저장</button>
+      <button class="btn primary" id="wSave" disabled>💾 낱말로 저장</button>
+      <button class="btn" id="wSyl" disabled>🔡 음절로 나누기</button>
+    </div>
+
+    <div id="sylWrap" hidden style="margin-top:14px">
+      <h2 style="font-size:.95rem">음절 나누기</h2>
+      <p class="note">소리가 작아지는 지점을 찾아 자동으로 나눈 결과입니다. ◀ ▶ 로 경계를 0.03초씩 옮기고 🔊 로 확인하십시오. 음절을 모아 두면 이어 읽기가 더 많은 낱말을 읽습니다.</p>
+      <div id="sylList" style="margin-top:8px"></div>
+      <div class="row-end" style="margin-top:10px">
+        <button class="btn primary" id="sylSave">💾 음절 모두 저장</button>
+      </div>
     </div>
 
     <div class="wkeep">보관 시간 안내 — 낱말 모델은 만든 때부터 1시간만 이 기기에 남고 자동으로 지워집니다. 이 시간은 설정으로 바꿀 수 없습니다. 서버로 보내지 않으며, 파일로 내보내지도 않습니다. 다음 수업에 쓰시려면 그때 다시 만드십시오.</div>
@@ -1385,10 +1395,10 @@ function curText(){
 
 
 
-/* ===== 낱말 모델 (편집형 자기 모델링) =====
-   학생이 실제로 낸 소리에서 한 낱말 구간만 잘라 보관한다.
+/* ===== 낱말·음절 모델 (편집형 자기 모델링) =====
+   학생이 실제로 낸 소리에서 낱말 또는 음절 구간을 잘라 보관한다.
    합성이 아니라 학생의 실제 발화이므로 자기 모델링 근거가 그대로 적용된다.
-   보관 시간은 녹음과 같고 최대 1시간을 넘지 않는다. */
+   보관 시간은 녹음과 같고 1시간으로 고정된다. */
 var K_WM="sttlog.wordmodels.v1";
 var WM=store.get(K_WM,[]);
 function saveWM(){ store.set(K_WM,WM); }
@@ -1401,6 +1411,8 @@ function wmLeftText(at){
   var m=Math.floor(ms/60000);
   return m>=1 ? (m+"분 뒤 자동 삭제") : (Math.max(1,Math.round(ms/1000))+"초 뒤 자동 삭제");
 }
+function wmLive(){ return WM.filter(function(m){ return wmLeftMs(m.at)>0; }); }
+function wmUnit(m){ return m.unit==="syl" ? "음절" : "낱말"; }
 
 /* ---- 오디오 잘라내기 (webm/opus → 구간 → WAV) ---- */
 var wmCtx=null;
@@ -1420,16 +1432,19 @@ function decodeClip(blob, cb){
   fr.onerror=function(){ cb(null); };
   fr.readAsArrayBuffer(blob);
 }
-function bufToWav(buf, from, to){
+/* 구간 표본을 모노로 뽑는다 */
+function bufSlice(buf, from, to){
   var sr=buf.sampleRate, ch=buf.numberOfChannels;
   var s0=Math.max(0,Math.floor(from*sr)), s1=Math.min(buf.length,Math.ceil(to*sr));
-  var n=Math.max(1,s1-s0);
-  var mix=new Float32Array(n);
-  for(var c=0;c<ch;c++){
+  var n=Math.max(1,s1-s0), mix=new Float32Array(n), c, i;
+  for(c=0;c<ch;c++){
     var d=buf.getChannelData(c);
-    for(var i=0;i<n;i++) mix[i]+=d[s0+i]/ch;
+    for(i=0;i<n;i++) mix[i]+=d[s0+i]/ch;
   }
-  var bytes=44+n*2, ab=new ArrayBuffer(bytes), v=new DataView(ab), o=0;
+  return mix;
+}
+function pcmToWav(mix, sr){
+  var n=mix.length, bytes=44+n*2, ab=new ArrayBuffer(bytes), v=new DataView(ab), o=0;
   function str(x){ for(var i=0;i<x.length;i++) v.setUint8(o++, x.charCodeAt(i)); }
   function u32(x){ v.setUint32(o,x,true); o+=4; }
   function u16(x){ v.setUint16(o,x,true); o+=2; }
@@ -1441,21 +1456,52 @@ function bufToWav(buf, from, to){
   }
   return new Blob([ab],{type:"audio/wav"});
 }
+function bufToWav(buf, from, to){ return pcmToWav(bufSlice(buf,from,to), buf.sampleRate); }
+
+/* ---- 음절 경계 추정: 소리가 가장 작아지는 지점으로 붙인다 ---- */
+function sylBounds(buf, from, to, n){
+  var sr=buf.sampleRate, d=buf.getChannelData(0);
+  var s0=Math.max(0,Math.floor(from*sr)), s1=Math.min(buf.length,Math.ceil(to*sr));
+  var hop=Math.max(1,Math.round(sr*0.01)), env=[], i, k;
+  for(i=s0;i<s1;i+=hop){
+    var e=0, m=Math.min(i+hop,s1);
+    for(k=i;k<m;k++) e+=d[k]*d[k];
+    env.push(Math.sqrt(e/Math.max(1,m-i)));
+  }
+  /* 3점 평활 */
+  var sm=env.slice();
+  for(i=1;i<env.length-1;i++) sm[i]=(env[i-1]+env[i]+env[i+1])/3;
+  var out=[];
+  for(var j=1;j<n;j++){
+    var target=Math.round(sm.length*j/n);
+    var win=Math.max(2,Math.round(sm.length*0.45/n));
+    var best=target, bv=Infinity;
+    for(k=Math.max(1,target-win);k<Math.min(sm.length-1,target+win);k++){
+      if(sm[k]<bv){ bv=sm[k]; best=k; }
+    }
+    out.push(from + best*hop/sr);
+  }
+  return out;
+}
 
 /* ---- 낱말 고르기 패널 ---- */
-var wBuf=null, wDur=0, wWord="", wPrev=null;
+var wBuf=null, wDur=0, wWord="";
+var sylParts=[];          /* [{ch, a, b, on}] */
 function wSec(id){
   var el=$(id); if(!el||!wDur) return 0;
   return (+el.value/1000)*wDur;
 }
+function hangulOf(s){ return String(s||"").split("").filter(function(c){ return /[가-힣]/.test(c); }); }
 function wRenderSpan(){
   var a=wSec("#wStart"), b=wSec("#wEnd");
   var el=$("#wSpan");
   if(!wBuf){ el.textContent="녹음을 불러오지 못했습니다."; return; }
-  if(b-a<0.08){ el.textContent="구간이 너무 짧습니다 (0.1초 이상)"; $("#wSave").disabled=true; return; }
+  if(b-a<0.08){ el.textContent="구간이 너무 짧습니다 (0.1초 이상)"; $("#wSave").disabled=true; $("#wSyl").disabled=true; return; }
   el.textContent=a.toFixed(2)+"초 ~ "+b.toFixed(2)+"초 · 길이 "+(b-a).toFixed(2)+"초"+
     (wWord?(" · 낱말 “"+wWord+"”"):" · 낱말을 고르십시오");
   $("#wSave").disabled=!wWord;
+  $("#wSyl").disabled=!(wWord && hangulOf(wWord).length>=2);
+  if(sylParts.length) sylClose();
 }
 function wRenderChips(){
   var c=$("#wordChips"); c.innerHTML="";
@@ -1472,11 +1518,11 @@ function wRenderChips(){
 function openWord(){
   if(!recBlob){ toast("먼저 학생이 말한 소리를 녹음하십시오."); return; }
   stopAllAudio();
-  wWord=""; wBuf=null; wDur=0;
+  wWord=""; wBuf=null; wDur=0; sylClose();
   $("#wordPanel").hidden=false; $("#ovl").hidden=false;
   $("#wStart").value=0; $("#wEnd").value=1000;
   $("#wStart").max=1000; $("#wEnd").max=1000;
-  $("#wSave").disabled=true;
+  $("#wSave").disabled=true; $("#wSyl").disabled=true;
   $("#wordWho").textContent="현재 학생: "+(S.speaker||"미지정");
   $("#wSpan").textContent="녹음을 불러오는 중…";
   wRenderChips();
@@ -1485,7 +1531,7 @@ function openWord(){
     wBuf=buf; wDur=buf.duration; wRenderSpan();
   });
 }
-function closeWord(){ stopAllAudio(); $("#wordPanel").hidden=true; $("#ovl").hidden=true; renderLive(); }
+function closeWord(){ stopAllAudio(); sylClose(); $("#wordPanel").hidden=true; $("#ovl").hidden=true; renderLive(); }
 function wClip(){
   if(!wBuf) return null;
   var a=wSec("#wStart"), b=wSec("#wEnd");
@@ -1497,29 +1543,130 @@ function wPreview(slow){
   if(anyPlaying()){ stopAllAudio(); return; }
   playBlob(bl, null, "__wprev", null, slow?(+S.drillRate||0.7):1);
 }
+function putModel(word, blob, sec, unit, cb){
+  var id="wm-"+uid(), at=Date.now();
+  audioPut(id, blob, function(ok){
+    if(!ok) return cb&&cb(false);
+    WM.unshift({ id:id, speaker:S.speaker||"미지정", word:word,
+                 sec:+sec.toFixed(2), bytes:blob.size, at:at, unit:unit||"word" });
+    cb&&cb(true);
+  });
+}
 function wSaveModel(){
   var bl=wClip();
   if(!bl){ toast("구간을 먼저 고르십시오."); return; }
   if(!wWord){ toast("낱말을 먼저 고르십시오."); return; }
   var a=wSec("#wStart"), b=wSec("#wEnd");
-  var id="wm-"+uid(), at=Date.now();
-  audioPut(id, bl, function(ok){
+  putModel(wWord, bl, b-a, "word", function(ok){
     if(!ok){ toast("저장하지 못했습니다."); return; }
-    WM.unshift({ id:id, speaker:S.speaker||"미지정", word:wWord,
-                 sec:+(b-a).toFixed(2), bytes:bl.size, at:at });
     saveWM(); renderWM(); renderAudioInfo(); renderLive();
     toast("“"+wWord+"” 낱말 모델을 "+(S.speaker||"미지정")+" 학생으로 저장했습니다. 1시간 뒤 지워집니다.");
     closeWord();
   });
 }
 
-/* ---- 낱말 모델 패널 ---- */
-function openWM(){
-  /* 수업 중에는 지금 고른 학생만 보는 편이 빠르다 */
-  if(WM.some(function(m){ return m.speaker===S.speaker && wmLeftMs(m.at)>0; })) wmWho=S.speaker;
-  renderWM(); $("#wmPanel").hidden=false; $("#ovl").hidden=false;
+/* ---- 음절로 나누기 ---- */
+function sylClose(){ sylParts=[]; var w=$("#sylWrap"); if(w) w.hidden=true; }
+function sylOpen(){
+  if(!wBuf || !wWord){ toast("낱말과 구간을 먼저 고르십시오."); return; }
+  var chars=hangulOf(wWord);
+  if(chars.length<2){ toast("두 음절 이상인 낱말에서만 나눌 수 있습니다."); return; }
+  var a=wSec("#wStart"), b=wSec("#wEnd");
+  var bs=sylBounds(wBuf, a, b, chars.length);
+  sylParts=[];
+  var prev=a;
+  chars.forEach(function(ch,i){
+    var end = (i<chars.length-1) ? bs[i] : b;
+    sylParts.push({ ch:ch, a:prev, b:end, on:true });
+    prev=end;
+  });
+  $("#sylWrap").hidden=false;
+  sylRender();
 }
-function closeWM(){ stopAllAudio(); $("#wmPanel").hidden=true; $("#ovl").hidden=true; renderLive(); }
+function sylRender(){
+  var el=$("#sylList"); if(!el) return;
+  el.innerHTML="";
+  sylParts.forEach(function(p,i){
+    var row=document.createElement("div"); row.className="fixrow";
+    var left=document.createElement("div");
+    left.innerHTML='<div class="ft"></div><div class="fh"></div>';
+    left.querySelector(".ft").textContent=p.ch;
+    left.querySelector(".fh").textContent=p.a.toFixed(2)+"초 ~ "+p.b.toFixed(2)+"초 · "+(p.b-p.a).toFixed(2)+"초";
+    var wrap=document.createElement("div"); wrap.style.display="flex"; wrap.style.gap="6px";
+    if(i>0){
+      var l=document.createElement("button"); l.className="btn sm"; l.textContent="◀";
+      l.setAttribute("aria-label", p.ch+" 시작 앞으로");
+      l.onclick=function(){ sylShift(i,-0.03); };
+      wrap.appendChild(l);
+      var r=document.createElement("button"); r.className="btn sm"; r.textContent="▶";
+      r.setAttribute("aria-label", p.ch+" 시작 뒤로");
+      r.onclick=function(){ sylShift(i,0.03); };
+      wrap.appendChild(r);
+    }
+    var pl=document.createElement("button"); pl.className="btn sm"; pl.textContent="🔊";
+    pl.setAttribute("aria-label", p.ch+" 들어 보기");
+    pl.onclick=function(){ sylPlay(i,pl); };
+    var tg=document.createElement("button");
+    tg.className="btn sm"+(p.on?" primary":"");
+    tg.textContent=p.on?"저장함":"건너뜀";
+    tg.onclick=function(){ p.on=!p.on; sylRender(); };
+    wrap.appendChild(pl); wrap.appendChild(tg);
+    row.appendChild(left); row.appendChild(wrap); el.appendChild(row);
+  });
+}
+function sylShift(i, d){
+  if(i<=0 || i>=sylParts.length) return;
+  var prev=sylParts[i-1], cur=sylParts[i];
+  var nb=cur.a+d;
+  if(nb-prev.a<0.06 || cur.b-nb<0.06) return;
+  prev.b=nb; cur.a=nb; sylRender();
+}
+function sylPlay(i, btn){
+  if(anyPlaying()){ stopAllAudio(); return; }
+  var p=sylParts[i];
+  playBlob(bufToWav(wBuf,p.a,p.b), btn, "__syl"+i, null, 1);
+}
+function sylSaveAll(){
+  var list=sylParts.filter(function(p){ return p.on && (p.b-p.a)>=0.06; });
+  if(!list.length){ toast("저장할 음절이 없습니다."); return; }
+  var i=0, done=0;
+  (function next(){
+    if(i>=list.length){
+      saveWM(); renderWM(); renderAudioInfo(); renderLive();
+      toast("음절 "+done+"개를 저장했습니다. 1시간 뒤 지워집니다.");
+      closeWord(); return;
+    }
+    var p=list[i++];
+    putModel(p.ch, bufToWav(wBuf,p.a,p.b), p.b-p.a, "syl", function(ok){
+      if(ok) done++;
+      next();
+    });
+  })();
+}
+
+/* ---- 낱말 모델 패널 ---- */
+var wmWho="";   /* "" 면 전체 학생 */
+function wmRow(m){
+  var row=document.createElement("div"); row.className="fixrow";
+  var left=document.createElement("div");
+  left.innerHTML='<div class="ft"></div><div class="fh"></div>';
+  left.querySelector(".ft").textContent=m.word;
+  left.querySelector(".fh").textContent=wmUnit(m)+" · "+m.sec.toFixed(2)+"초 · "+wmLeftText(m.at);
+  var wrap=document.createElement("div"); wrap.style.display="flex"; wrap.style.gap="6px";
+  var p1=document.createElement("button"); p1.className="btn sm"; p1.textContent="🔊 듣기";
+  p1.onclick=function(){ wmPlay(m,p1,false); };
+  var p2=document.createElement("button"); p2.className="btn sm"; p2.textContent="🐢 천천히";
+  p2.onclick=function(){ wmPlay(m,p2,true); };
+  var d=document.createElement("button"); d.className="btn sm danger"; d.textContent="🗑️";
+  d.setAttribute("aria-label", m.word+" 삭제");
+  d.onclick=function(){
+    audioDel([m.id]);
+    WM=WM.filter(function(x){return x.id!==m.id;}); saveWM(); renderWM(); renderAudioInfo(); renderLive();
+  };
+  wrap.appendChild(p1); wrap.appendChild(p2); wrap.appendChild(d);
+  row.appendChild(left); row.appendChild(wrap);
+  return row;
+}
 function wmPlay(m, btn, slow){
   if(anyPlaying()){ stopAllAudio(); return; }
   audioGet(m.id, function(v){
@@ -1531,35 +1678,11 @@ function wmPlay(m, btn, slow){
     else { btn.dataset.label="🔊 듣기"; playBlob(v.blob, btn, m.id, null, 1); }
   });
 }
-var wmWho="";   /* "" 면 전체 학생 */
-function wmLive(){ return WM.filter(function(m){ return wmLeftMs(m.at)>0; }); }
-function wmRow(m){
-  var row=document.createElement("div"); row.className="fixrow";
-  var left=document.createElement("div");
-  left.innerHTML='<div class="ft"></div><div class="fh"></div>';
-  left.querySelector(".ft").textContent=m.word;
-  left.querySelector(".fh").textContent=m.sec.toFixed(2)+"초 · "+wmLeftText(m.at);
-  var wrap=document.createElement("div"); wrap.style.display="flex"; wrap.style.gap="6px";
-  var p1=document.createElement("button"); p1.className="btn sm"; p1.textContent="🔊 듣기";
-  p1.onclick=function(){ wmPlay(m,p1,false); };
-  var p2=document.createElement("button"); p2.className="btn sm"; p2.textContent="🐢 천천히";
-  p2.onclick=function(){ wmPlay(m,p2,true); };
-  var d=document.createElement("button"); d.className="btn sm danger"; d.textContent="🗑️";
-  d.setAttribute("aria-label", m.word+" 삭제");
-  d.onclick=function(){
-    audioDel([m.id]);
-    WM=WM.filter(function(x){return x.id!==m.id;}); saveWM(); renderWM(); renderAudioInfo();
-  };
-  wrap.appendChild(p1); wrap.appendChild(p2); wrap.appendChild(d);
-  row.appendChild(left); row.appendChild(wrap);
-  return row;
-}
 function renderWMFilter(){
   var c=$("#wmFilter"); if(!c) return;
   c.innerHTML="";
   var live=wmLive(), cnt={};
   live.forEach(function(m){ cnt[m.speaker]=(cnt[m.speaker]||0)+1; });
-  /* 등록된 학생을 먼저, 목록에 없는 과거 화자는 뒤에 */
   var names=S.speakers.map(function(x){return x.name;});
   Object.keys(cnt).forEach(function(n){ if(names.indexOf(n)<0) names.push(n); });
   var all=document.createElement("button");
@@ -1577,16 +1700,15 @@ function renderWMFilter(){
 }
 function renderWM(){
   var el=$("#wmList"); if(!el) return;
-  $("#wmKeepNote").textContent="보관 시간 안내 — 낱말 모델은 만든 때부터 1시간 뒤 자동으로 지워집니다. "+
+  $("#wmKeepNote").textContent="보관 시간 안내 — 낱말과 음절 모델은 만든 때부터 1시간 뒤 자동으로 지워집니다. "+
     "이 시간은 설정으로 바꿀 수 없습니다. 남은 시간이 각 항목에 표시됩니다.";
   renderWMFilter();
   el.innerHTML="";
   var live=wmLive();
   if(!live.length){
-    el.innerHTML='<p class="note">저장된 낱말 모델이 없습니다. 기록 화면에서 낱말 고르기를 눌러 만드십시오.</p>';
+    el.innerHTML='<p class="note">저장된 모델이 없습니다. 기록 화면에서 낱말 고르기를 눌러 만드십시오.</p>';
     return;
   }
-  /* 학생별로 묶어서 보여 준다. 고른 학생이 있으면 그 학생만 */
   var order=[], grp={};
   live.forEach(function(m){
     if(wmWho && m.speaker!==wmWho) return;
@@ -1594,52 +1716,99 @@ function renderWM(){
     grp[m.speaker].push(m);
   });
   if(!order.length){
-    el.innerHTML='<p class="note">'+esc(wmWho)+' 학생의 낱말 모델이 없습니다. 이 학생을 고른 뒤 기록 화면에서 낱말 고르기를 눌러 만드십시오.</p>';
+    el.innerHTML='<p class="note">'+esc(wmWho)+' 학생의 모델이 없습니다. 이 학생을 고른 뒤 기록 화면에서 낱말 고르기를 눌러 만드십시오.</p>';
     return;
   }
   order.forEach(function(name){
+    var ws=grp[name].filter(function(m){ return m.unit!=="syl"; });
+    var ss=grp[name].filter(function(m){ return m.unit==="syl"; });
     var h=document.createElement("div");
     h.style.cssText="font-weight:800;font-size:.9rem;margin:12px 0 6px;padding-bottom:4px;border-bottom:2px solid var(--line)";
-    h.textContent=name+" — "+grp[name].length+"개";
+    h.textContent=name+" — 낱말 "+ws.length+"개 · 음절 "+ss.length+"개";
     el.appendChild(h);
-    grp[name].forEach(function(m){ el.appendChild(wmRow(m)); });
+    ws.concat(ss).forEach(function(m){ el.appendChild(wmRow(m)); });
   });
 }
+function openWM(){
+  if(WM.some(function(m){ return m.speaker===S.speaker && wmLeftMs(m.at)>0; })) wmWho=S.speaker;
+  renderWM(); $("#wmPanel").hidden=false; $("#ovl").hidden=false;
+}
+function closeWM(){ stopAllAudio(); $("#wmPanel").hidden=true; $("#ovl").hidden=true; renderLive(); }
 function wmWipe(){
   var target=wmLive().filter(function(m){ return !wmWho || m.speaker===wmWho; });
-  if(!target.length){ toast("삭제할 낱말 모델이 없습니다."); return; }
+  if(!target.length){ toast("삭제할 모델이 없습니다."); return; }
   var who=wmWho?(wmWho+" 학생의 "):"";
-  if(!confirm(who+"낱말 모델 "+target.length+"개를 삭제합니다.")) return;
+  if(!confirm(who+"모델 "+target.length+"개를 삭제합니다.")) return;
   var ids={}; target.forEach(function(m){ ids[m.id]=1; });
   audioDel(Object.keys(ids));
   WM=WM.filter(function(m){ return !ids[m.id]; });
-  saveWM(); renderWM(); renderAudioInfo();
-  toast(who+"낱말 모델을 삭제했습니다.");
+  saveWM(); renderWM(); renderAudioInfo(); renderLive();
+  toast(who+"모델을 삭제했습니다.");
 }
 
-
-/* ===== 이어 읽기 =====
+/* ===== 이어 읽기 (연결 합성) =====
    큰 화면에 있는 글을 학생이 실제로 낸 소리로 읽어 준다.
-   저장해 둔 낱말 모델을 문장 순서대로 이어 재생하며,
-   모델이 없는 낱말은 건너뛰고 화면에 표시한다. 합성은 쓰지 않는다. */
-var chainOn=false, chainT=null, chainIdx=-1, chainList=[];
+   낱말 모델을 먼저 쓰고, 없으면 음절 모델을 이어 붙인다.
+   합성이라 해도 재료는 전부 학생의 실제 발화이며 외부로 나가지 않는다. */
+var chainOn=false, chainT=null, chainIdx=-1, chainList=[], chainMarks=[], chainTimers=[];
 
-function chainPlan(){
-  var words=curText().split(/\s+/).filter(Boolean);
+function unitPool(){
   var live=wmLive().filter(function(m){ return m.speaker===S.speaker; });
-  return words.map(function(w){
-    var hit=null, i;
-    for(i=0;i<live.length;i++){ if(live[i].word===w){ hit=live[i]; break; } }
-    if(!hit){ /* 조사가 붙은 낱말은 앞부분이 같으면 같은 낱말로 본다 */
-      for(i=0;i<live.length;i++){
-        if(live[i].word.length>=2 && w.indexOf(live[i].word)===0){ hit=live[i]; break; }
+  var words=[], syl={};
+  live.forEach(function(m){
+    if(m.unit==="syl"){ if(!syl[m.word]) syl[m.word]=m; }
+    else words.push(m);
+  });
+  return { words:words, syl:syl };
+}
+/* 한 어절을 읽을 방법을 정한다 */
+function planWord(w, pool){
+  var i, m;
+  for(i=0;i<pool.words.length;i++){ if(pool.words[i].word===w) return {kind:"word", parts:[pool.words[i]]}; }
+  /* 낱말 모델이 앞부분을 덮으면 나머지는 음절로 채운다.
+     음절이 없으면 어간만이라도 읽어 준다. */
+  for(i=0;i<pool.words.length;i++){
+    m=pool.words[i];
+    if(m.word.length>=2 && w.indexOf(m.word)===0){
+      var rest=hangulOf(w.slice(m.word.length)), parts=[m], ok=true, k;
+      for(k=0;k<rest.length;k++){
+        if(pool.syl[rest[k]]) parts.push(pool.syl[rest[k]]);
+        else { ok=false; break; }
       }
+      if(ok) return {kind: rest.length?"mix":"word", parts:parts};
+      return {kind:"part", parts:[m], miss:rest};
     }
-    return { w:w, m:hit };
+  }
+  /* 전부 음절로 */
+  var chars=hangulOf(w);
+  if(chars.length){
+    var ps=[], all=true;
+    for(i=0;i<chars.length;i++){
+      if(pool.syl[chars[i]]) ps.push(pool.syl[chars[i]]);
+      else { all=false; break; }
+    }
+    if(all) return {kind:"syl", parts:ps};
+  }
+  return {kind:"none", parts:[], miss:chars};
+}
+function chainPlan(){
+  var pool=unitPool();
+  return curText().split(/\s+/).filter(Boolean).map(function(w){
+    var p=planWord(w,pool);
+    return { w:w, kind:p.kind, parts:p.parts, miss:p.miss||[] };
   });
 }
 function chainHits(){
-  var n=0; chainPlan().forEach(function(x){ if(x.m) n++; }); return n;
+  var n=0; chainPlan().forEach(function(x){ if(x.kind!=="none") n++; }); return n;
+}
+function chainMissing(){
+  var pool=unitPool(), need={};
+  curText().split(/\s+/).filter(Boolean).forEach(function(w){
+    var p=planWord(w,pool);
+    if(p.kind==="none") hangulOf(w).forEach(function(c){ if(!pool.syl[c]) need[c]=1; });
+    else if(p.kind==="part") (p.miss||[]).forEach(function(c){ if(!pool.syl[c]) need[c]=1; });
+  });
+  return Object.keys(need);
 }
 function showChainBar(on){
   var el=$("#chainBar"); if(!el) return;
@@ -1651,10 +1820,19 @@ function renderChainBar(){
   c.innerHTML="";
   chainList.forEach(function(x,i){
     var e=document.createElement("span");
-    e.className="cw "+(x.m?"has":"no")+(i===chainIdx?" now":"");
-    e.textContent=x.w;
+    e.className="cw "+(x.kind==="none"?"no":"has")+(i===chainIdx?" now":"");
+    e.textContent=x.w+(x.kind==="syl"?" ·음절":(x.kind==="mix"?" ·혼합":(x.kind==="part"?" ·일부":"")));
     c.appendChild(e);
   });
+  var note=$("#chainNote");
+  if(note){
+    var total=chainList.length, hit=0;
+    chainList.forEach(function(x){ if(x.kind!=="none") hit++; });
+    var miss=chainMissing();
+    note.textContent = total
+      ? (hit+"/"+total+" 어절 읽기 가능"+(miss.length?(" · 빠진 음절: "+miss.slice(0,12).join(" ")):""))
+      : "";
+  }
 }
 function setChainBusy(on){
   var b=$("#chainBtn"); if(!b) return;
@@ -1664,31 +1842,65 @@ function setChainBusy(on){
 function chainStop(){
   chainOn=false;
   if(chainT){ clearTimeout(chainT); chainT=null; }
+  chainTimers.forEach(function(t){ clearTimeout(t); });
+  chainTimers=[];
   chainIdx=-1; setChainBusy(false);
   if(chainList.length) renderChainBar();
 }
-function chainStep(){
-  if(!chainOn) return;
-  chainIdx++;
-  while(chainIdx<chainList.length && !chainList[chainIdx].m) chainIdx++;
-  renderChainBar();
-  if(chainIdx>=chainList.length){
-    chainOn=false; chainIdx=-1; setChainBusy(false); renderChainBar();
-    toast("끝까지 읽었습니다.");
-    return;
+/* 필요한 조각을 모두 불러온다 */
+function loadParts(list, cb){
+  var out=[], i=0;
+  (function next(){
+    if(i>=list.length) return cb(out);
+    audioGet(list[i].id, function(v){
+      out.push(v && v.blob ? v.blob : null); i++; next();
+    });
+  })();
+}
+/* 조각을 하나의 소리로 이어 붙인다. 음절 사이는 짧게 겹쳐 이음새를 줄인다. */
+function joinUnits(plan, blobs, cb){
+  var c=audioCtx(); if(!c) return cb(null,[]);
+  var idx=0, bufs=[];
+  (function dec(){
+    if(idx>=blobs.length){ mix(); return; }
+    var b=blobs[idx];
+    if(!b){ bufs.push(null); idx++; dec(); return; }
+    decodeClip(b, function(buf){ bufs.push(buf); idx++; dec(); });
+  })();
+  function mix(){
+    var sr=0, i;
+    for(i=0;i<bufs.length;i++){ if(bufs[i]){ sr=bufs[i].sampleRate; break; } }
+    if(!sr) return cb(null,[]);
+    var xf=Math.round(sr*0.012);     /* 음절 사이 겹침 12ms */
+    var gap=Math.round(sr*0.16);     /* 어절 사이 쉼 160ms */
+    var segs=[], marks=[], pos=0, pi=0;
+    plan.forEach(function(x){
+      if(x.kind==="none"){ marks.push(null); pi+=x.parts.length; return; }
+      var pieces=[];
+      for(i=0;i<x.parts.length;i++){ var b=bufs[pi++]; if(b) pieces.push(bufSlice(b,0,b.duration)); }
+      if(!pieces.length){ marks.push(null); return; }
+      var len=0;
+      pieces.forEach(function(p,k){ len += p.length - (k?Math.min(xf,p.length-1):0); });
+      var seg=new Float32Array(len), o=0;
+      pieces.forEach(function(p,k){
+        if(k===0){ seg.set(p,0); o=p.length; return; }
+        var ov=Math.min(xf, p.length-1, o);
+        var s=o-ov;
+        for(i=0;i<ov;i++){
+          var t=i/ov;
+          seg[s+i]=seg[s+i]*(1-t)+p[i]*t;
+        }
+        for(i=ov;i<p.length;i++) seg[s+i]=p[i];
+        o=s+p.length;
+      });
+      marks.push({ at:pos/sr, dur:seg.length/sr });
+      segs.push(seg); pos+=seg.length+gap;
+    });
+    if(!segs.length) return cb(null,[]);
+    var total=pos-gap, all=new Float32Array(Math.max(1,total)), o2=0;
+    segs.forEach(function(s,k){ all.set(s,o2); o2+=s.length+(k<segs.length-1?gap:0); });
+    cb(pcmToWav(all,sr), marks);
   }
-  var m=chainList[chainIdx].m;
-  audioGet(m.id, function(v){
-    if(!chainOn) return;
-    if(!v || !v.blob){   /* 보관 시간이 지난 모델은 목록에서 뺀다 */
-      WM=WM.filter(function(x){ return x.id!==m.id; }); saveWM();
-      chainT=setTimeout(chainStep, 60); return;
-    }
-    playBlob(v.blob, null, "__chain", function(){
-      if(!chainOn) return;
-      chainT=setTimeout(chainStep, 260);
-    }, 1);
-  });
 }
 function chainToggle(){
   if(chainOn || anyPlaying()){ stopAllAudio(); return; }
@@ -1697,14 +1909,40 @@ function chainToggle(){
   var plan=chainPlan();
   if(!plan.length){ toast("화면에 읽을 글이 없습니다."); return; }
   chainList=plan; chainIdx=-1;
-  var n=0; plan.forEach(function(x){ if(x.m) n++; });
   showChainBar(true); renderChainBar();
+  var n=0; plan.forEach(function(x){ if(x.kind!=="none") n++; });
   if(!n){
-    toast((S.speaker||"이 학생")+" 학생의 낱말 모델이 이 문장에 하나도 없습니다. 낱말 고르기로 먼저 만드십시오.");
+    var miss=chainMissing();
+    toast((S.speaker||"이 학생")+" 학생의 모델이 이 문장에 없습니다."+
+          (miss.length?(" 빠진 음절: "+miss.slice(0,8).join(" ")):""));
     return;
   }
   chainOn=true; setChainBusy(true);
-  chainStep();
+  var flat=[];
+  plan.forEach(function(x){ x.parts.forEach(function(m){ flat.push(m); }); });
+  loadParts(flat, function(blobs){
+    if(!chainOn) return;
+    joinUnits(plan, blobs, function(wav, marks){
+      if(!chainOn) return;
+      if(!wav){ chainOn=false; setChainBusy(false); toast("소리를 만들지 못했습니다."); return; }
+      chainMarks=marks;
+      /* 어절이 시작되는 시각에 맞춰 표시를 옮긴다 */
+      var mi=0;
+      plan.forEach(function(x,i){
+        if(x.kind==="none") return;
+        var mk=marks[mi++]; if(!mk) return;
+        chainTimers.push(setTimeout(function(){
+          if(!chainOn) return;
+          chainIdx=i; renderChainBar();
+        }, Math.round(mk.at*1000)));
+      });
+      playBlob(wav, null, "__chain", function(){
+        chainOn=false; chainIdx=-1; setChainBusy(false); renderChainBar();
+        chainTimers.forEach(function(t){ clearTimeout(t); }); chainTimers=[];
+        toast("끝까지 읽었습니다.");
+      }, 1);
+    });
+  });
 }
 
 /* ===== 기록 전 수정 ===== */
@@ -1865,9 +2103,10 @@ function renderLive(){
     var hit=ct?chainHits():0;
     cb.disabled=!hit;
     cb.textContent="🗣️ 이어 읽기";
+    var tot=ct?ct.split(/\s+/).filter(Boolean).length:0;
     cb.title = !ct ? "화면에 읽을 글이 없습니다"
-             : !hit ? (S.speaker+" 학생의 낱말 모델이 이 문장에 없습니다. 낱말 고르기로 만드십시오")
-             : "화면의 글을 "+S.speaker+" 학생이 실제로 낸 소리로 이어 읽어 줍니다 ("+hit+"개 낱말)";
+             : !hit ? (S.speaker+" 학생의 낱말·음절 모델이 이 문장에 없습니다. 낱말 고르기로 만드십시오")
+             : "화면의 글을 "+S.speaker+" 학생이 실제로 낸 소리로 읽어 줍니다 ("+tot+"개 어절 중 "+hit+"개)";
   }
   var wb=$("#wordBtn");
   if(wb){
@@ -2101,6 +2340,8 @@ function bind(){
   $("#wPlay").onclick=function(){ wPreview(false); };
   $("#wPlaySlow").onclick=function(){ wPreview(true); };
   $("#wSave").onclick=wSaveModel;
+  $("#wSyl").onclick=sylOpen;
+  $("#sylSave").onclick=sylSaveAll;
   $("#wordCustomSet").onclick=function(){
     var v=$("#wordCustom").value.trim();
     if(!v){ toast("낱말을 입력하십시오."); return; }
