@@ -1,0 +1,5 @@
+coqui-tts
+gradio
+spaces
+torch
+torchaudio

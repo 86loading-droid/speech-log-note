@@ -6,9 +6,16 @@ compatibility_date = "2026-01-01"
 
 [vars]
 ALLOW_ORIGIN = "https://86loading-droid.github.io"
-SIZE = "0.6b"
 MAX_CHARS = "200"
 
+# 무료 경로: 허깅페이스 Space
+BACKEND = "hf"
+SPACE = "계정-스페이스이름.hf.space"
+
+# 유료 경로로 바꾸려면 BACKEND 를 "fal" 로 고치고 FAL_KEY 를 넣으십시오.
+# SIZE = "0.6b"
+
 # 비밀값은 파일에 적지 말고 아래 명령으로 넣으십시오.
-#   npx wrangler secret put FAL_KEY
 #   npx wrangler secret put APP_TOKEN
+#   npx wrangler secret put HF_TOKEN     # 무료 경로
+#   npx wrangler secret put FAL_KEY      # 유료 경로

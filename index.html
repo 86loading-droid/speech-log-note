@@ -598,9 +598,10 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     <p class="note">학생의 음성은 개인정보입니다. 화자는 실명 대신 익명 코드로 등록하시고, 연구 자료로 쓰실 경우 보호자 동의와 기관생명윤리위원회 심의를 먼저 받으십시오.</p>
 
     <hr class="hr">
-    <h2>목소리 복제로 읽기 <span class="sub">유료 · 쓴 만큼 과금</span></h2>
+    <h2>목소리 복제로 읽기 <span class="sub">무료 경로와 유료 경로</span></h2>
     <p class="note">학생 목소리를 복제해 화면의 글을 그대로 읽어 줍니다. 낱말이나 음절을 미리 잘라 두지 않아도 되며, 처음 보는 문장도 읽습니다. 합성은 학교 밖 서버에서 이루어지므로 보호자 서면 동의를 받은 학생에게만 쓰십시오.</p>
-    <div class="wkeep" style="border-color:var(--accent);color:var(--accent)">비용 안내 — 무료가 아닙니다. 목소리 등록은 참조 음성 1분에 약 0.0008달러, 읽기는 1000자에 약 0.07달러입니다. 20자 문장 한 번이 약 2원, 하루 100문장이면 약 200원 수준입니다. 구독이 아니라 쓴 만큼만 청구됩니다.</div>
+    <div class="wkeep" style="border-color:var(--ok);color:var(--ok)">무료 경로 — 교수님 계정의 허깅페이스 Space 에 XTTS-v2 를 올려 쓰는 방식입니다. 카드 등록 없이 0원이며, 무료 계정 기준 하루 GPU 5분이 제공됩니다. 짧은 문장 기준 하루 60~150회 수준이고, 한도를 넘기면 24시간 뒤 다시 채워집니다. 처음 호출할 때 Space 가 깨어나느라 30~60초가 걸릴 수 있습니다.</div>
+    <div class="wkeep" style="border-color:var(--accent);color:var(--accent)">유료 경로 — fal.ai 를 쓰면 한도 없이 즉시 응답합니다. 등록은 1분에 약 0.0008달러, 읽기는 1000자에 약 0.07달러입니다. 20자 문장 한 번이 약 2원이고 구독이 아니라 쓴 만큼만 청구됩니다.</div>
 
     <label class="f" for="clnUrl">복제 서버 주소</label>
     <input type="url" id="clnUrl" placeholder="예: https://speech-log-voice.&lt;계정&gt;.workers.dev" autocomplete="off">
@@ -2000,7 +2001,7 @@ function chainToggle(){
 /* ===== 목소리 복제로 읽기 (유료 · 쓴 만큼) =====
    학생 목소리를 복제해 임의의 문장을 읽는다. 합성은 중계 서버를 거쳐
    바깥 서비스에서 이루어진다. 결과는 메모리에만 두고 기록에 넣지 않는다. */
-var CLN={}, clnOn=false, clnAbort=false;
+var CLN={}, clnOn=false, clnAbort=false, clnFree=true;
 
 function clnBase(){ return String(S.clnUrl||"").trim().replace(/\/+$/,""); }
 function clnOnOff(){ return !!clnBase(); }
@@ -2031,9 +2032,10 @@ function clnTest(){
   el.textContent="확인 중…";
   fetch(base+"/health",{headers:clnHead()}).then(function(r){ return r.json(); }).then(function(d){
     if(d && d.ok){
-      el.textContent="연결됨 · "+(d.provider||"?")+" · 키 "+(d.keyed?"설정됨":"없음")+
-        " · 1회 최대 "+(d.maxChars||"?")+"자";
-      if(!d.keyed) el.textContent+=" · 서버에 API 키가 없어 읽기가 되지 않습니다.";
+      clnFree = (d.backend!=="fal");
+      el.textContent="연결됨 · "+(d.provider||"?")+" · "+(clnFree?"무료 경로":"유료 경로")+
+        " · 설정 "+(d.keyed?"완료":"안 됨")+" · 1회 최대 "+(d.maxChars||"?")+"자";
+      if(!d.keyed) el.textContent+=" · 서버 설정이 끝나지 않아 읽기가 되지 않습니다.";
     } else el.textContent="응답이 올바르지 않습니다.";
   }).catch(function(){ el.textContent="연결하지 못했습니다. 주소와 인터넷 상태를 확인하십시오."; });
 }
@@ -2044,22 +2046,34 @@ function clnRegister(sp, btn){
   if(!base){ toast("설정에서 복제 서버 주소를 먼저 넣으십시오."); return; }
   if(!recBlob){ toast("먼저 그 학생의 목소리를 녹음하십시오. 기록 화면에서 목소리 녹음 버튼을 쓰시면 됩니다."); return; }
   btn.disabled=true; btn.textContent="등록 중…";
-  var fr=new FileReader();
-  fr.onload=function(){
-    fetch(base+"/voice",{ method:"POST", headers:clnHead(),
-      body:JSON.stringify({ audio:String(fr.result) }) })
-      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,d:d}; }); })
-      .then(function(x){
-        if(!x.ok || !x.d.voiceUrl){ toast("등록하지 못했습니다. "+((x.d&&x.d.error)||"")); return; }
-        sp.cln={ url:x.d.voiceUrl, at:Date.now() };
-        saveSet(); renderCln(); renderLive();
-        toast(sp.name+" 목소리를 등록했습니다.");
-      })
-      .catch(function(){ toast("등록 중 통신 오류가 발생했습니다."); })
-      .then(function(){ btn.disabled=false; renderCln(); });
+  var done=function(x){
+    if(!x.ok || !x.d.voiceUrl){ toast("등록하지 못했습니다. "+((x.d&&x.d.error)||"")); return; }
+    sp.cln={ url:x.d.voiceUrl, at:Date.now() };
+    saveSet(); renderCln(); renderLive();
+    toast(sp.name+" 목소리를 등록했습니다.");
   };
-  fr.onerror=function(){ btn.disabled=false; renderCln(); toast("녹음을 읽지 못했습니다."); };
-  fr.readAsDataURL(recBlob);
+  var fail=function(){ toast("등록 중 통신 오류가 발생했습니다."); };
+  var fin=function(){ btn.disabled=false; renderCln(); };
+  var asJson=function(r){ return r.json().then(function(d){ return {ok:r.ok,d:d}; }); };
+
+  if(clnFree){
+    /* 무료 경로: 파일을 그대로 올린다 */
+    var fd=new FormData();
+    fd.append("file", recBlob, "ref.webm");
+    var h={}; if(S.clnToken) h["X-App-Token"]=S.clnToken;
+    fetch(base+"/voice",{ method:"POST", headers:h, body:fd })
+      .then(asJson).then(done).catch(fail).then(fin);
+  } else {
+    /* 유료 경로: 데이터 URI 로 보낸다 */
+    var fr=new FileReader();
+    fr.onload=function(){
+      fetch(base+"/voice",{ method:"POST", headers:clnHead(),
+        body:JSON.stringify({ audio:String(fr.result) }) })
+        .then(asJson).then(done).catch(fail).then(fin);
+    };
+    fr.onerror=function(){ fin(); toast("녹음을 읽지 못했습니다."); };
+    fr.readAsDataURL(recBlob);
+  }
 }
 function clnRelease(sp){
   if(!sp.cln) return;
@@ -2285,7 +2299,7 @@ function renderLive(){
     clb.textContent="🎙️ 복제 읽기";
     clb.title = !ct2 ? "화면에 읽을 글이 없습니다"
               : !vu ? (S.speaker+" 학생의 목소리가 등록되지 않았습니다")
-              : "화면의 글을 "+S.speaker+" 학생 목소리로 읽어 줍니다 (복제 · 유료)";
+              : ("화면의 글을 "+S.speaker+" 학생 목소리로 읽어 줍니다 (복제 · "+(clnFree?"무료 경로":"유료 경로")+")");
   }
   var cb=$("#chainBtn");
   if(cb && !cb.classList.contains("playing")){
