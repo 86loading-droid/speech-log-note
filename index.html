@@ -606,7 +606,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     <label class="f" for="clnUrl">복제 서버 주소 <span class="sub">코랩이면 trycloudflare.com 주소</span></label>
     <input type="url" id="clnUrl" placeholder="예: https://speech-log-voice.&lt;계정&gt;.workers.dev" autocomplete="off">
 
-    <label class="f" for="clnToken">공유 암호</label>
+    <label class="f" for="clnToken">공유 암호 <span class="sub">영문·숫자·기호만 — 한글은 쓸 수 없습니다</span></label>
     <input type="password" id="clnToken" placeholder="서버에 설정한 APP_TOKEN" autocomplete="off">
 
     <div class="row-end" style="margin-top:10px">
@@ -2011,6 +2011,9 @@ function clnHead(extra){
   return h;
 }
 function curCln(){ var x=spkOf(S.speaker); return (x && x.cln && x.cln.url) ? x.cln.url : ""; }
+/* 공유 암호는 HTTP 헤더로 보낸다. 헤더는 한글을 담지 못하므로 미리 걸러 낸다. */
+function clnTokOk(){ return !/[^\x00-\xFF]/.test(String(S.clnToken||"")); }
+var CLN_TOK_MSG="공유 암호에 한글이 들어 있습니다. 통신 규약상 한글 암호는 보낼 수 없으니, 코랩 2번 칸의 APP_TOKEN 과 이 칸을 영문·숫자(예: kse-voice-2026)로 함께 바꾸신 뒤 2번 칸을 다시 실행하십시오.";
 function showClnLive(on){
   var el=$("#clnLive"); if(!el) return;
   el.hidden=!on; el.setAttribute("aria-hidden", on?"false":"true");
@@ -2029,6 +2032,7 @@ function clnStop(){
 function clnTest(){
   var base=clnBase(), el=$("#clnInfo");
   if(!base){ el.textContent="복제 서버 주소를 먼저 입력하십시오."; return; }
+  if(!clnTokOk()){ el.textContent=CLN_TOK_MSG; return; }
   el.textContent="확인 중…";
   fetch(base+"/health",{headers:clnHead()}).then(function(r){ return r.json(); }).then(function(d){
     if(d && d.ok){
@@ -2044,6 +2048,7 @@ function clnTest(){
 function clnRegister(sp, btn){
   var base=clnBase();
   if(!base){ toast("설정에서 복제 서버 주소를 먼저 넣으십시오."); return; }
+  if(!clnTokOk()){ toast(CLN_TOK_MSG); return; }
   if(!recBlob){ toast("먼저 그 학생의 목소리를 녹음하십시오. 기록 화면에서 목소리 녹음 버튼을 쓰시면 됩니다."); return; }
   btn.disabled=true; btn.textContent="등록 중…";
   var done=function(x){
@@ -2531,7 +2536,10 @@ function bind(){
     $("#clnInfo").textContent = S.clnUrl ? "저장했습니다. 연결 확인을 눌러 보십시오."
       : "복제 서버 주소를 넣지 않으면 복제 읽기 버튼이 화면에 나타나지 않습니다.";
   };
-  $("#clnToken").onchange=function(){ S.clnToken=this.value; saveSet(); };
+  $("#clnToken").onchange=function(){
+    S.clnToken=this.value; saveSet();
+    if(!clnTokOk()) $("#clnInfo").textContent=CLN_TOK_MSG;
+  };
   $("#clnTest").onclick=clnTest;
   $("#wordBtn").onclick=openWord;
   $("#wordClose").onclick=closeWord;
