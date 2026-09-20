@@ -77,13 +77,12 @@ localStorage
 speech-log/
 ├─ index.html          # 애플리케이션 전체 (HTML + CSS + JS 단일 파일, 외부 의존성 없음)
 ├─ README.md           # 이 문서
-├─ colab/              # (선택) 무료 경로 — 구글 코랩 노트북
-│  └─ speech_log_voice_colab.ipynb
+├─ speech_log_voice_colab.ipynb   # (선택) 무료 경로 — 구글 코랩 노트북
 ├─ worker.js           # (선택) 유료 경로 중계 서버 — Cloudflare Workers 코드
 └─ wrangler.toml       # (선택) 중계 서버 배포 설정
 ```
 
-앱 자체에는 외부 라이브러리·빌드 도구·서버가 전혀 없습니다. `index.html` 하나만 있으면 동작합니다. `colab/` 은 6-5의 복제 읽기를 무료로 쓸 때만, `worker.js` 와 `wrangler.toml` 은 유료 경로를 쓸 때만 필요하며, 둘 다 GitHub Pages 배포와는 무관합니다.
+앱 자체에는 외부 라이브러리·빌드 도구·서버가 전혀 없습니다. `index.html` 하나만 있으면 동작합니다. `speech_log_voice_colab.ipynb` 는 6-5의 복제 읽기를 무료로 쓸 때만, `worker.js` 와 `wrangler.toml` 은 유료 경로를 쓸 때만 필요하며, 둘 다 GitHub Pages 배포와는 무관합니다.
 
 ---
 
@@ -405,11 +404,11 @@ https://<사용자명>.github.io/speech-log/
 
 ### 무료 경로 — 구글 코랩
 
-저장소의 `colab/speech_log_voice_colab.ipynb` 를 구글 코랩에서 엽니다. 중계 서버가 따로 필요 없습니다. 노트북이 만드는 주소로 앱이 바로 접속합니다.
+저장소의 `speech_log_voice_colab.ipynb` 를 구글 코랩에서 엽니다. 중계 서버가 따로 필요 없습니다. 노트북이 만드는 주소로 앱이 바로 접속합니다.
 
 1. 런타임 → 런타임 유형 변경 → 하드웨어 가속기를 T4 GPU 로 바꿉니다.
 2. 1번 칸을 실행합니다. 설치에 5~10분 걸리며 처음 한 번만 하면 됩니다.
-3. 2번 칸의 공유 암호를 아무 문자열로 바꾸고 실행합니다.
+3. 2번 칸의 공유 암호(APP_TOKEN)를 영문·숫자로 된 아무 문자열로 바꾸고 실행합니다. 공유 암호는 HTTP 헤더로 오가므로 한글은 쓸 수 없습니다. 한글을 넣으면 칸이 바로 멈추고 안내가 나옵니다.
 4. 마지막에 나오는 `https://….trycloudflare.com` 주소와 공유 암호를 앱 설정에 넣습니다.
 5. 수업이 끝나면 탭을 닫습니다.
 
