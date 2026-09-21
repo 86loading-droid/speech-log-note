@@ -2013,6 +2013,14 @@ function clnHead(extra){
 function curCln(){ var x=spkOf(S.speaker); return (x && x.cln && x.cln.url) ? x.cln.url : ""; }
 /* 공유 암호는 HTTP 헤더로 보낸다. 헤더는 한글을 담지 못하므로 미리 걸러 낸다. */
 function clnTokOk(){ return !/[^\x00-\xFF]/.test(String(S.clnToken||"")); }
+/* 복제 서버 주소 칸에 앱 주소(github.io)를 넣는 실수를 미리 걸러 낸다. */
+function clnUrlMsg(){
+  var b=clnBase(), u;
+  try{ u=new URL(b); }catch(e){ return "복제 서버 주소의 형식이 올바르지 않습니다. https:// 로 시작하는 주소를 넣으십시오."; }
+  if(u.origin===location.origin || /\.github\.io$/.test(u.hostname))
+    return "복제 서버 주소 칸에 앱 주소(github.io)가 들어 있습니다. 코랩 2번 칸 결과의 '복제 서버 주소' 줄에 나온 https://….trycloudflare.com 주소를 넣으십시오.";
+  return "";
+}
 var CLN_TOK_MSG="공유 암호에 한글이 들어 있습니다. 통신 규약상 한글 암호는 보낼 수 없으니, 코랩 2번 칸의 APP_TOKEN 과 이 칸을 영문·숫자(예: kse-voice-2026)로 함께 바꾸신 뒤 2번 칸을 다시 실행하십시오.";
 function showClnLive(on){
   var el=$("#clnLive"); if(!el) return;
@@ -2032,6 +2040,7 @@ function clnStop(){
 function clnTest(){
   var base=clnBase(), el=$("#clnInfo");
   if(!base){ el.textContent="복제 서버 주소를 먼저 입력하십시오."; return; }
+  if(clnUrlMsg()){ el.textContent=clnUrlMsg(); return; }
   if(!clnTokOk()){ el.textContent=CLN_TOK_MSG; return; }
   el.textContent="확인 중…";
   fetch(base+"/health",{headers:clnHead()}).then(function(r){ return r.json(); }).then(function(d){
@@ -2048,6 +2057,7 @@ function clnTest(){
 function clnRegister(sp, btn){
   var base=clnBase();
   if(!base){ toast("설정에서 복제 서버 주소를 먼저 넣으십시오."); return; }
+  if(clnUrlMsg()){ toast(clnUrlMsg()); return; }
   if(!clnTokOk()){ toast(CLN_TOK_MSG); return; }
   if(!recBlob){ toast("먼저 그 학생의 목소리를 녹음하십시오. 기록 화면에서 목소리 녹음 버튼을 쓰시면 됩니다."); return; }
   btn.disabled=true; btn.textContent="등록 중…";
