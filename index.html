@@ -590,6 +590,11 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
       <button class="chip" id="pttRecChip" aria-pressed="true">누르고 말하기 때 목소리도 담기</button>
     </div>
     <p class="note" id="pttRecNote"></p>
+    <details id="diagWrap" style="margin-top:10px">
+      <summary style="cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center">🩺 진단 정보 (문제가 생기면 이 화면을 찍어 보내 주세요)</summary>
+      <pre id="diagBox" style="white-space:pre-wrap;font-size:.75rem;line-height:1.45;max-height:260px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0"></pre>
+      <button class="btn sm" id="diagCopy" type="button">진단 정보 복사</button>
+    </details>
 
     <label class="f" for="recRateSel">녹음 품질</label>
     <select id="recRateSel">
@@ -1272,6 +1277,29 @@ var IS_ANDROID=/Android/i.test(UA);
 var CHROME_VER=+((UA.match(/Chrome\/(\d+)/)||[])[1]||0);
 var SR_TRACK_OK=CHROME_VER>=135;
 var srTrack=null, sess=null;
+/* ===== 진단 기록: 실제 태블릿에서 무슨 일이 일어나는지 화면으로 확인하기 위함 ===== */
+var DIAG=[], srRestarts=[], lastSrErr="";
+function dlog(m){
+  var d=new Date(), t=("0"+d.getMinutes()).slice(-2)+":"+("0"+d.getSeconds()).slice(-2)+"."+("00"+d.getMilliseconds()).slice(-3);
+  DIAG.push(t+"  "+m); if(DIAG.length>60) DIAG.shift();
+  var box=document.getElementById("diagBox"); if(box && !box.closest("[hidden]")) renderDiag();
+}
+function renderDiag(){
+  var box=document.getElementById("diagBox"); if(!box) return;
+  var env=["기기: "+(IS_ANDROID?"안드로이드":"안드로이드 아님")+" · Chrome "+(CHROME_VER||"?")+" · 음성 인식 "+(SR?"있음":"없음")+" · 녹음 "+(recSupported()?"가능":"불가"),
+    "입력 방식: "+S.mode+" · 누르고 말하기: "+pttMode()+(S.pttNoRec?" (글자만 고정)":"")+" · 화면 폭 "+innerWidth+"×"+innerHeight,
+    "마지막 인식 오류: "+(lastSrErr||"없음"), "----"];
+  box.textContent=env.concat(DIAG.slice().reverse()).join("\n");
+}
+/* 듣기·녹음을 모두 멈춘다 (패널을 열거나 글자를 입력하려 할 때, 화면을 떠날 때) */
+function stopAllInput(why){
+  var any=ptt||vrHold||wantListen;
+  if(sess) sess.aborted=true;
+  if(ptt) pttUp();
+  if(vrHold) vrUp();
+  if(wantListen) endListen(false);
+  if(any) dlog("멈춤: "+why);
+}
 function pttMode(){
   if(!(S.recAudio && recSupported() && recAllowed())) return "text";
   if(!IS_ANDROID) return "both";
@@ -1285,9 +1313,15 @@ function openMic(){
     .then(function(st){ micStream=st; return st; });
 }
 /* 녹음을 함께 켰는데 소리는 들어왔으나 글자가 하나도 오지 않으면, 이 기기는 글자만 받게 바꾼다 */
+var sharedMiss=0;
 function checkSess(ss){
-  if(!ss || ss.mode!=="shared" || ss.got) return;
+  if(!ss || ss.mode!=="shared" || ss.aborted) return;
+  if(ss.got){ sharedMiss=0; return; }
   if(Date.now()-ss.t0<1200 || ss.peak<25) return;
+  /* 학생이 말하지 않았는데 주변 소리만 들어온 경우를 가려내려고 두 번 이어서 실패할 때만 바꾼다 */
+  sharedMiss++; dlog("글자 없이 끝남 "+sharedMiss+"회");
+  if(sharedMiss<2 && !ss.hard){ toast("글자가 인식되지 않았습니다. 한 번 더 눌러 말해 주세요."); return; }
+  sharedMiss=0;
   S.pttNoRec=true; saveSet(); renderPttChip();
   srTrack=null; releaseMic();
   banner("이 태블릿에서는 녹음과 글자 인식을 동시에 할 수 없어, 누르고 말하기는 이제 글자만 받습니다. 방금 말은 인식되지 않았으니 한 번 더 눌러 말해 주세요. 학생 목소리는 🔴 목소리 녹음 버튼으로 따로 담을 수 있습니다.");
@@ -1611,7 +1645,9 @@ function wRenderChips(){
   });
 }
 function openWord(){
-  if(!recBlob){ toast("먼저 마이크 버튼을 누른 채로 학생이 말하게 하십시오. 녹음된 소리가 있어야 낱말을 고를 수 있습니다."); return; }
+  if(!recBlob){ toast(pttMode()==="both"||pttMode()==="shared"
+      ? "먼저 누르고 말하기로 학생이 말하게 하십시오. 녹음된 소리가 있어야 낱말을 고를 수 있습니다."
+      : "녹음된 소리가 없습니다. 🔴 목소리 녹음 버튼을 누른 채로 학생이 말하게 한 뒤 다시 누르십시오."); return; }
   stopAllAudio();
   wWord=""; wBuf=null; wDur=0; sylClose();
   $("#wordPanel").hidden=false; $("#ovl").hidden=false;
@@ -1832,6 +1868,7 @@ function renderWM(){
   });
 }
 function openWM(){
+  stopAllInput("낱말 모델 열기");
   if(WM.some(function(m){ return m.speaker===S.speaker && wmLeftMs(m.at)>0; })) wmWho=S.speaker;
   renderWM(); $("#wmPanel").hidden=false; $("#ovl").hidden=false;
 }
@@ -2439,7 +2476,7 @@ function setStatus(t,on){
 function buildRec(){
   var r=new SR();
   r.continuous=true; r.interimResults=true; r.lang=S.lang; r.maxAlternatives=1;
-  r.onstart=function(){ listening=true; setStatus("듣는 중 — 말씀하세요",true); };
+  r.onstart=function(){ listening=true; dlog("인식 시작됨"); setStatus("듣는 중 — 말씀하세요",true); };
   r.onresult=function(e){
     var itm="";
     for(var i=e.resultIndex;i<e.results.length;i++){
@@ -2464,9 +2501,10 @@ function buildRec(){
       } else itm+=txt;
     }
     interimBuf=itm; renderLive();
+    dlog("인식 결과: "+(finalBuf+" "+itm).trim().slice(0,30));
   };
   r.onerror=function(e){
-    var c=e.error;
+    var c=e.error; lastSrErr=c+" ("+new Date().toLocaleTimeString("ko-KR")+")"; dlog("인식 오류: "+c);
     if(c==="not-allowed"||c==="service-not-allowed"){
       wantListen=false; setStatus("마이크 권한이 거부되었습니다",false);
       banner("마이크 사용이 차단되었습니다. Chrome 주소창의 자물쇠 아이콘에서 마이크를 허용한 뒤 새로 고침하세요. 이 페이지는 https:// 주소에서만 마이크를 쓸 수 있으며, 다른 화면 안에 끼워 넣어 보는(iframe) 경우에도 차단됩니다. 그때는 배포 주소로 직접 접속하세요.");
@@ -2478,13 +2516,24 @@ function buildRec(){
     } else if(c && c!=="no-speech" && c!=="aborted"){
       setStatus("음성 인식 오류: "+c,false);
     }
-    if(c==="audio-capture" && sess && sess.mode==="shared"){ sess.got=false; sess.peak=100; checkSess(sess); }
+    if(c==="audio-capture" && sess && sess.mode==="shared"){ sess.got=false; sess.peak=100; sess.hard=true; checkSess(sess); }
   };
   r.onend=function(){
-    listening=false;
+    listening=false; dlog("인식 끝남");
+    /* 누르고 말하기인데 손가락이 이미 떨어졌다면(떼는 신호를 놓친 경우) 다시 켜지 않는다 */
+    if(wantListen && S.mode==="push" && !ptt){ wantListen=false; dlog("손을 뗀 상태라 다시 켜지 않음"); }
     if(wantListen){
       var now=Date.now();
-      if(now-restartAt<600){ setTimeout(start,700); } else { restartAt=now; start(); }
+      srRestarts=srRestarts.filter(function(x){ return now-x<10000; }); srRestarts.push(now);
+      /* 곧바로 끝나기를 되풀이하면 무한히 다시 켜지 않고 멈춘다 */
+      if(srRestarts.length>6){
+        dlog("10초 안에 7번 끊겨 멈춤");
+        stopAllInput("반복 끊김");
+        var msg="음성 인식이 계속 끊겨 멈췄습니다"+(lastSrErr?" — 오류: "+lastSrErr:"");
+        setTimeout(function(){ setStatus(msg,false); },80); toast(msg+". 설정 → 진단 정보를 찍어 보내 주세요.");
+        return;
+      }
+      if(now-restartAt<600){ setTimeout(function(){ if(wantListen) start(); },700); } else { restartAt=now; start(); }
     } else setStatus("대기 중",false);
   };
   return r;
@@ -2493,10 +2542,10 @@ function start(){
   if(!SR) return;
   try{
     if(!rec) rec=buildRec(); rec.lang=S.lang;
-    if(sess && sess.mode==="shared" && srTrack && srTrack.readyState==="live") rec.start(srTrack);
-    else rec.start();
+    if(sess && sess.mode==="shared" && srTrack && srTrack.readyState==="live"){ rec.start(srTrack); dlog("인식 요청: 마이크 소리 넘김"); }
+    else { rec.start(); dlog("인식 요청"); }
   }
-  catch(e){ /* 이미 시작된 경우 무시 */ }
+  catch(e){ dlog("인식 요청 실패: "+(e&&e.name||e)); }
 }
 function beginListen(){
   if(!SR){ toast("이 브라우저는 음성 인식을 지원하지 않습니다."); return false; }
@@ -2507,6 +2556,7 @@ function beginListen(){
   wantListen=true; restartAt=Date.now(); requestWake();
   var mode=pttMode();
   sess={mode:mode, got:false, peak:0, t0:Date.now()};
+  srRestarts=[]; dlog("듣기 시작 · 방식 "+mode);
   if(mode==="text"){
     /* 이 페이지가 마이크를 쥐고 있으면 안드로이드 음성 인식이 무음을 받는다 */
     if(IS_ANDROID && !mr) releaseMic();
@@ -2523,6 +2573,7 @@ function beginListen(){
 function endListen(commit){
   wantListen=false; stopRec(); stopMeter(); showRecLive(false); try{rec&&rec.stop();}catch(e){}
   var ss=sess; if(ss && ss.mode==="shared") setTimeout(function(){ checkSess(ss); }, 2500);
+  dlog("듣기 끝"+(ss?(" · 글자 "+(ss.got?"받음":"못 받음")+" · 소리 크기 "+ss.peak+"%"):""));
   setStatus("대기 중",false); releaseWake();
   if(commit && commitPending()){ renderLive(); toast("화면의 발화를 기록했습니다."); }
   renderLive();
@@ -2535,7 +2586,8 @@ function pttDown(e){
   if(S.mode!=="push" || ptt) return;
   if(e && e.preventDefault) e.preventDefault();
   if(!beginListen()) return;
-  ptt=true;
+  ptt=true; dlog("누르고 말하기 누름");
+  var my=sess; setTimeout(function(){ if(ptt && sess===my){ dlog("60초 지나 자동 멈춤"); pttUp(); } },60000);
   var m=$("#micBtn"); m.classList.add("rec"); m.textContent="🔴 녹음 중 — 손을 떼면 멈춤";
 }
 function pttUp(){
@@ -2613,7 +2665,7 @@ function showTab(id){
 }
 
 /* ========== 패널 ========== */
-function openPanel(){ $("#panel").hidden=false; $("#ovl").hidden=false; $("#recorderName").focus(); }
+function openPanel(){ stopAllInput("설정 열기"); $("#panel").hidden=false; $("#ovl").hidden=false; renderDiag(); }
 function closePanel(){ $("#panel").hidden=true; $("#ovl").hidden=true; }
 
 /* ========== 이벤트 바인딩 ========== */
@@ -2840,6 +2892,18 @@ function bind(){
     if(!confirm("정말 삭제할까요?")) return;
     RECS=[]; saveRecs(); purgeAudio(true); renderAll(); toast("모두 삭제했습니다.");
   };
+  /* 글자 칸을 누르면 듣기·녹음을 멈춘다. 음성 인식이 켜진 채로는 태블릿 키보드가 제대로 뜨지 않을 수 있다 */
+  document.addEventListener("focusin",function(e){
+    var t=e.target; if(!t || !t.tagName) return;
+    if(/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && t.type!=="range") stopAllInput("글자 칸 선택");
+  });
+  document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="hidden") stopAllInput("화면 벗어남"); });
+  window.addEventListener("pagehide",function(){ stopAllInput("페이지 닫힘"); });
+  $("#diagCopy").onclick=function(){
+    renderDiag(); var t=$("#diagBox").textContent;
+    if(navigator.clipboard) navigator.clipboard.writeText(t).then(function(){ toast("진단 정보를 복사했습니다."); },function(){ toast("복사하지 못했습니다. 화면을 찍어 보내 주십시오."); });
+  };
+  $("#diagWrap").addEventListener("toggle",renderDiag);
   document.addEventListener("keydown",function(e){
     if(e.key==="Escape") closePanel();
     if(e.code==="Space" && e.target===document.body && S.mode!=="push"){ e.preventDefault(); toggleMic(); }
