@@ -2630,6 +2630,9 @@ function buildRec(){
 function start(){
   if(!SR) return;
   try{
+    /* 안드로이드: 태블릿에서 확인된 방식(점검 페이지 ①)과 똑같이, 켤 때마다 새 음성 인식 객체를 만든다.
+       한 객체를 끝난 뒤 다시 켜면 기기에 따라 조용히 아무것도 받지 못하는 경우가 있다. */
+    if(IS_ANDROID && rec){ try{ rec.onend=null; rec.onerror=null; rec.onresult=null; rec.abort(); }catch(e){} rec=null; }
     if(!rec) rec=buildRec(); rec.lang=S.lang;
     srCount++;
     if(sess && sess.mode==="shared" && srTrack && srTrack.readyState==="live"){ rec.start(srTrack); dlog("인식 요청: 마이크 소리 넘김"); }
@@ -3069,13 +3072,9 @@ function init(){
     banner("이 앱은 갤럭시(안드로이드) 태블릿의 Chrome 기준으로 만들었습니다. 아이패드·아이폰은 지원 대상이 아니며, 음성 인식과 목소리 녹음이 제대로 동작하지 않습니다. 갤럭시 태블릿에서 열어 주세요.");
   }
   /* 카카오톡 안에서 열리면, 카카오톡이 제공하는 '바깥 브라우저로 열기'로 곧바로 넘긴다(한 번만 시도) */
-  if(/KAKAOTALK/i.test(UA)){
-    var tried=false; try{ tried=sessionStorage.getItem("sttlog.kakaoOut")==="1"; sessionStorage.setItem("sttlog.kakaoOut","1"); }catch(e){}
-    if(!tried){ var out="kakaotalk://web/openExternal?url="+encodeURIComponent(location.href); setTimeout(function(){ location.href=out; },400); }
-  }
   if(IN_APP){
     var hs=BROWSER.replace(/[^가-힣]/g,""), lc=hs.charCodeAt(hs.length-1)-0xAC00, ro=(lc>=0 && lc%28!==0 && lc%28!==8)?"으로":"로";
-    bannerHtml("지금 <b>"+BROWSER+"</b>"+ro+" 열려 있습니다. 이 화면에서는 누를 때마다 마이크 허용을 다시 묻거나(허용·거부만 뜸), 글자 인식과 녹음이 되지 않습니다. "+
+    bannerHtml("지금 <b>"+BROWSER+"</b>"+ro+" 열려 있습니다. 글자 인식은 되지만 마이크 허용을 자주 다시 물을 수 있습니다. 가능하면 Chrome으로 여십시오. "+
       "<a class='btn primary sm' style='margin-left:6px' href='"+chromeIntentUrl()+"'>Chrome으로 열기</a> "+
       "버튼이 안 되면 오른쪽 위 ⋮ 또는 공유 메뉴에서 「다른 브라우저로 열기 → Chrome」을 누르십시오.");
   }
