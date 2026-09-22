@@ -1296,7 +1296,7 @@ var CHROME_VER=+((UA.match(/Chrome\/(\d+)/)||[])[1]||0);
 var SR_TRACK_OK=CHROME_VER>=135;
 var srTrack=null, sess=null;
 /* ===== 진단 기록: 실제 태블릿에서 무슨 일이 일어나는지 화면으로 확인하기 위함 ===== */
-var DIAG=[], srRestarts=[], lastSrErr="";
+var DIAG=[], srRestarts=[], lastSrErr="", gumCount=0, srCount=0;
 function dlog(m){
   var d=new Date(), t=("0"+d.getMinutes()).slice(-2)+":"+("0"+d.getSeconds()).slice(-2)+"."+("00"+d.getMilliseconds()).slice(-3);
   DIAG.push(t+"  "+m); if(DIAG.length>60) DIAG.shift();
@@ -1306,7 +1306,8 @@ function renderDiag(){
   var box=document.getElementById("diagBox"); if(!box) return;
   var env=["기기: "+(IS_ANDROID?"안드로이드":"안드로이드 아님")+" · Chrome "+(CHROME_VER||"?")+" · 음성 인식 "+(SR?"있음":"없음")+" · 녹음 "+(recSupported()?"가능":"불가"),
     "입력 방식: "+S.mode+" · 누르고 말하기: "+pttMode()+(S.pttNoRec?" (글자만 고정)":"")+" · 화면 폭 "+innerWidth+"×"+innerHeight,
-    "마지막 인식 오류: "+(lastSrErr||"없음")+" · 사이트 마이크 권한: "+permState+(micBlocked?" · 마이크 요청 멈춤":""), "----"];
+    "마지막 인식 오류: "+(lastSrErr||"없음")+" · 사이트 마이크 권한: "+permState+(micBlocked?" · 마이크 요청 멈춤":""),
+    "이 화면에서 마이크 열기 "+gumCount+"번 · 음성 인식 시작 "+srCount+"번 · 지금 마이크 "+(micStream&&micStream.getAudioTracks().some(function(t){return t.readyState==="live";})?"열림":"닫힘"), "----"];
   box.textContent=env.concat(DIAG.slice().reverse()).join("\n");
 }
 /* ===== 마이크 권한: 거부되면 계속 묻지 않고 한 번 안내한다 ===== */
@@ -1360,8 +1361,13 @@ function pttMode(){
 function openMic(){
   if(micStream && micStream.getAudioTracks().some(function(t){return t.readyState==="live";}))
     return Promise.resolve(micStream);
+  gumCount++; dlog("마이크 열기 요청 ("+gumCount+"번째)");
   return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,channelCount:1}})
-    .then(function(st){ micStream=st; return st; });
+    .then(function(st){
+      micStream=st; dlog("마이크 열림"+(IS_ANDROID&&pttMode()==="shared"?" — 이 화면을 떠날 때까지 계속 씁니다":""));
+      st.getAudioTracks().forEach(function(t){ t.addEventListener("ended",function(){ dlog("마이크가 끊김(시스템)"); }); });
+      return st;
+    });
 }
 /* 녹음을 함께 켰는데 소리는 들어왔으나 글자가 하나도 오지 않으면, 이 기기는 글자만 받게 바꾼다 */
 var sharedMiss=0;
@@ -1395,6 +1401,9 @@ function releaseMic(){
 function idleRelease(){
   if(recIdleT) clearTimeout(recIdleT);
   /* 안드로이드는 이 페이지가 마이크를 쥐고 있으면 음성 인식이 무음을 받으므로 바로 놓는다 */
+  /* 단, 마이크 소리를 음성 인식에 넘기는 방식(shared)에서는 다툼이 없으므로 쥐고 있는다.
+     놓았다가 다시 열면 태블릿이 누를 때마다 마이크 허용을 다시 물을 수 있다(이번만 허용 등). */
+  if(IS_ANDROID && pttMode()==="shared"){ recIdleT=null; return; }
   recIdleT=setTimeout(function(){ if(!wantListen && !vrHold && !mr) releaseMic(); }, IS_ANDROID?600:180000);
 }
 function startRec(label){
@@ -2594,6 +2603,7 @@ function start(){
   if(!SR) return;
   try{
     if(!rec) rec=buildRec(); rec.lang=S.lang;
+    srCount++;
     if(sess && sess.mode==="shared" && srTrack && srTrack.readyState==="live"){ rec.start(srTrack); dlog("인식 요청: 마이크 소리 넘김"); }
     else { rec.start(); dlog("인식 요청"); }
   }
@@ -2963,7 +2973,7 @@ function bind(){
     var t=e.target; if(!t || !t.tagName) return;
     if(/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && t.type!=="range") stopAllInput("글자 칸 선택");
   });
-  document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="hidden") stopAllInput("화면 벗어남"); });
+  document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="hidden"){ stopAllInput("화면 벗어남"); releaseMic(); } });
   window.addEventListener("pagehide",function(){ stopAllInput("페이지 닫힘"); });
   $("#diagCopy").onclick=function(){
     renderDiag(); var t=$("#diagBox").textContent;
