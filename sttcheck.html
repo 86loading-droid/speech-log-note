@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>음성 인식 점검</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--text:#f1f5f9;--sub:#94a3b8;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b;--acc:#3b82f6}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Pretendard","Noto Sans KR",system-ui,sans-serif}
+  main{max-width:1100px;margin:0 auto;padding:14px 16px 40px}
+  h1{font-size:1.3rem;margin:4px 0 10px}
+  .env{background:var(--card);border-radius:12px;padding:10px 14px;font-size:.95rem;line-height:1.7}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+  button{min-height:56px;padding:0 20px;border-radius:14px;border:0;font-size:1.05rem;font-weight:800;cursor:pointer}
+  .go{background:var(--acc);color:#fff}.go2{background:#6366f1;color:#fff}.stop{background:#475569;color:#fff}.mic{background:#0ea5e9;color:#fff}
+  #text{min-height:120px;background:#fff;color:#111;border-radius:14px;padding:14px;font-size:2rem;font-weight:800;line-height:1.35}
+  #text .i{color:#94a3b8}
+  #meter{height:14px;background:#334155;border-radius:7px;overflow:hidden;margin-top:8px}#meter i{display:block;height:100%;width:0;background:var(--ok)}
+  #log{background:#020617;border-radius:12px;padding:10px 12px;font:14px/1.55 ui-monospace,Consolas,monospace;white-space:pre-wrap;max-height:48vh;overflow:auto;margin-top:12px}
+  .k{color:var(--ok)}.e{color:var(--bad)}.w{color:var(--warn)}
+  .verdict{margin-top:12px;padding:12px 14px;border-radius:12px;font-weight:800;font-size:1.05rem;background:var(--card)}
+</style>
+</head>
+<body>
+<main>
+  <h1>🩺 음성 인식 점검 — 발화 기록 노트와 따로, 태블릿 자체의 음성 인식만 확인합니다</h1>
+  <div class="env" id="env"></div>
+  <div class="row">
+    <button class="go" id="b1">① 한 문장 듣기 (눌러서 시작)</button>
+    <button class="go2" id="b2">② 계속 듣기</button>
+    <button class="stop" id="bs">⏹ 멈춤</button>
+    <button class="mic" id="bm">🎙 마이크 소리 확인 (5초)</button>
+  </div>
+  <div id="text"><span class="i">① 을 누르고 "안녕하세요" 라고 말해 보세요.</span></div>
+  <div id="meter"><i></i></div>
+  <div class="verdict" id="verdict">결과가 여기에 나옵니다.</div>
+  <div id="log"></div>
+</main>
+<script>
+(function(){
+var $=function(s){return document.querySelector(s);};
+var UA=navigator.userAgent, SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+var cv=(UA.match(/Chrome\/(\d+)/)||[])[1]||"?";
+var br=/KAKAOTALK/i.test(UA)?"카카오톡 안 브라우저":/NAVER/i.test(UA)?"네이버 앱 안 브라우저":/SamsungBrowser/i.test(UA)?"삼성 인터넷":/; wv\)/.test(UA)?"앱 안 브라우저(WebView)":/Chrome\//.test(UA)?"Chrome":"기타";
+var perm="?";
+function env(){
+  $("#env").innerHTML="브라우저: <b>"+br+"</b> · Chrome "+cv+" · 안드로이드 "+(/Android/.test(UA)?"예":"아니오")+
+    "<br>음성 인식 기능: <b>"+(SR?"있음":"없음")+"</b> · 마이크 권한: <b>"+perm+"</b> · 주소: "+location.protocol+"//"+location.host;
+}
+env();
+if(navigator.permissions&&navigator.permissions.query){
+  navigator.permissions.query({name:"microphone"}).then(function(s){perm=s.state;env();s.onchange=function(){perm=s.state;env();log("마이크 권한 바뀜: "+s.state,"w");};}).catch(function(){});
+}
+var t0=0;
+function log(m,c){var d=((Date.now()-t0)/1000).toFixed(2);var el=$("#log");el.innerHTML=("<span class='"+(c||"")+"'>"+d+"초  "+m+"</span>\n")+el.innerHTML;}
+var got=false, events={};
+function verdict(){
+  var v;
+  if(!SR) v="❌ 이 브라우저에는 음성 인식 기능이 없습니다. Chrome 앱에서 여십시오.";
+  else if(got) v="✅ 태블릿의 음성 인식은 정상입니다. 글자가 나왔습니다. 문제는 발화 기록 노트 쪽입니다 — 이 화면을 찍어 보내 주세요.";
+  else if(events.error) v="❌ 음성 인식 오류: "+events.error+" — 이 화면을 찍어 보내 주세요.";
+  else if(events.start && !events.audiostart) v="⚠️ 인식은 시작됐지만 마이크 소리를 받지 못했습니다(audiostart 없음). 다른 앱이 마이크를 쓰는지, Google 앱의 마이크 권한을 확인하세요.";
+  else if(events.audiostart && !events.soundstart) v="⚠️ 마이크는 열렸지만 소리가 감지되지 않았습니다. 더 가까이서, 더 크게 말해 보세요.";
+  else if(events.speechstart && !got) v="⚠️ 말소리는 감지했지만 글자를 돌려받지 못했습니다. 인터넷 연결과 Google 앱(음성 인식)의 상태를 확인하세요.";
+  else if(events.start) v="⚠️ 인식이 시작됐지만 아무 결과가 없었습니다. 이 화면을 찍어 보내 주세요.";
+  else v="⚠️ 음성 인식이 시작되지 않았습니다. 이 화면을 찍어 보내 주세요.";
+  $("#verdict").textContent=v;
+}
+var rec=null;
+function run(cont){
+  if(!SR){verdict();return;}
+  try{ if(rec) rec.abort(); }catch(e){}
+  got=false; events={}; t0=Date.now(); $("#log").innerHTML=""; $("#text").innerHTML="<span class='i'>듣는 중… 지금 말하세요</span>";
+  rec=new SR(); rec.lang="ko-KR"; rec.interimResults=true; rec.continuous=!!cont; rec.maxAlternatives=1;
+  ["start","audiostart","soundstart","speechstart","speechend","soundend","audioend","nomatch"].forEach(function(n){
+    rec["on"+n]=function(){events[n]=1; log(n,"k");};
+  });
+  rec.onresult=function(e){
+    var fin="",itm="";
+    for(var i=0;i<e.results.length;i++){ var r=e.results[i]; if(r.isFinal) fin+=r[0].transcript; else itm+=r[0].transcript; }
+    if((fin+itm).trim()) got=true;
+    $("#text").innerHTML=(fin||"")+"<span class='i'>"+(itm||"")+"</span>";
+    log("result: "+(fin?"[확정] "+fin:"")+(itm?" [중간] "+itm:""),"k");
+  };
+  rec.onerror=function(e){events.error=e.error+(e.message?" ("+e.message+")":""); log("error: "+events.error,"e");};
+  rec.onend=function(){log("end");verdict();};
+  try{ rec.start(); log("start() 호출 ("+(cont?"계속 듣기":"한 문장")+")"); }
+  catch(e){ log("start() 실패: "+(e.name||e)+" "+(e.message||""),"e"); events.error="start 실패 "+(e.name||e); verdict(); }
+}
+$("#b1").onclick=function(){run(false);};
+$("#b2").onclick=function(){run(true);};
+$("#bs").onclick=function(){ try{rec&&rec.stop();}catch(e){} log("stop() 호출"); };
+$("#bm").onclick=function(){
+  t0=Date.now(); log("마이크 열기 요청");
+  navigator.mediaDevices.getUserMedia({audio:true}).then(function(st){
+    log("마이크 열림","k");
+    var AC=window.AudioContext||window.webkitAudioContext, ac=new AC(), src=ac.createMediaStreamSource(st), an=ac.createAnalyser();
+    an.fftSize=512; src.connect(an); var buf=new Uint8Array(an.fftSize), peak=0, end=Date.now()+5000;
+    (function loop(){ an.getByteTimeDomainData(buf); var p=0; for(var i=0;i<buf.length;i++){var v=Math.abs(buf[i]-128); if(v>p)p=v;}
+      peak=Math.max(peak,p); $("#meter i").style.width=Math.min(100,Math.round(p/70*100))+"%";
+      if(Date.now()<end) requestAnimationFrame(loop);
+      else { st.getTracks().forEach(function(t){t.stop();}); ac.close(); $("#meter i").style.width="0";
+        log("마이크 소리 최대 크기: "+Math.round(peak/70*100)+"% "+(peak>12?"(소리 들어옴)":"(소리 거의 없음)"), peak>12?"k":"w"); log("마이크 닫음"); }
+    })();
+  }).catch(function(e){ log("마이크 열기 실패: "+(e.name||e),"e"); });
+};
+})();
+</script>
+</body>
+</html>

@@ -594,6 +594,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
       <summary style="cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center">🩺 진단 정보 (문제가 생기면 이 화면을 찍어 보내 주세요)</summary>
       <pre id="diagBox" style="white-space:pre-wrap;font-size:.75rem;line-height:1.45;max-height:260px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0"></pre>
       <button class="btn sm" id="diagCopy" type="button">진단 정보 복사</button>
+      <a class="btn sm" href="sttcheck.html" target="_blank" rel="noopener" style="margin-left:6px">🎙 음성 인식만 따로 점검</a>
     </details>
 
     <label class="f" for="recRateSel">녹음 품질</label>
@@ -1306,6 +1307,15 @@ var BROWSER = /KAKAOTALK/i.test(UA)?"카카오톡 안 브라우저"
   : /EdgA|OPR|Whale/i.test(UA)?"기타 브라우저"
   : /Chrome\//.test(UA)?"Chrome":"알 수 없음";
 var IN_APP = IS_ANDROID && BROWSER!=="Chrome";
+/* 태블릿은 '눌러서 시작, 다시 눌러서 끝' 방식으로 쓴다.
+   - 손가락을 대는 순간(pointerdown)은 브라우저가 '사용자 동작'으로 치지 않아 음성 인식이 막힐 수 있다.
+     탭(click)은 확실한 사용자 동작이다.
+   - 누른 채로 말하기는 손 조절이 어려운 학생에게도 부담이 크다. */
+var TAP = IS_ANDROID;
+function micLabel(on){
+  return TAP ? (on ? "⏹️ 듣는 중 — 다시 누르면 끝" : "🎤 눌러서 말하기")
+             : (on ? "🔴 녹음 중 — 손을 떼면 멈춤" : "🎤 누르고 말하기");
+}
 function chromeIntentUrl(){
   return "intent://"+location.host+location.pathname+location.search+"#Intent;scheme=https;package=com.android.chrome;end";
 }
@@ -2545,7 +2555,7 @@ function setStatus(t,on){
   var m=$("#micBtn");
   if(S.mode==="push"){
     m.classList.toggle("rec",!!on);
-    m.textContent = on ? "🔴 녹음 중 — 손을 떼면 멈춤" : "🎤 누르고 말하기";
+    m.textContent = micLabel(!!on);
   } else {
     m.classList.toggle("rec",!!on);
     m.textContent = on ? "⏹️ 멈추기" : "🎤 말하기 시작";
@@ -2685,14 +2695,14 @@ function pttDown(e){
   if(e && e.preventDefault) e.preventDefault();
   if(!beginListen()) return;
   ptt=true; dlog("누르고 말하기 누름");
-  var my=sess; setTimeout(function(){ if(ptt && sess===my){ dlog("60초 지나 자동 멈춤"); pttUp(); } },60000);
-  var m=$("#micBtn"); m.classList.add("rec"); m.textContent="🔴 녹음 중 — 손을 떼면 멈춤";
+  var my=sess; setTimeout(function(){ if(ptt && sess===my){ dlog("시간이 지나 자동 멈춤"); pttUp(); } }, TAP?90000:60000);
+  var m=$("#micBtn"); m.classList.add("rec"); m.textContent=micLabel(true);
 }
 function pttUp(){
   if(!ptt) return;
   ptt=false;
   endListen(false);
-  var m=$("#micBtn"); m.classList.remove("rec"); m.textContent="🎤 누르고 말하기";
+  var m=$("#micBtn"); m.classList.remove("rec"); m.textContent=micLabel(false);
 }
 /* 목소리 녹음 전용 버튼: 누르는 동안 음성만 담는다(인식은 하지 않음) */
 var vrHold=false, vrWanted=false;
@@ -2737,7 +2747,7 @@ function renderRecBtn(){
 function applyMode(){
   var m=$("#micBtn");
   ptt=false; m.classList.remove("rec");
-  m.textContent = S.mode==="push" ? "🎤 누르고 말하기" : "🎤 말하기 시작";
+  m.textContent = S.mode==="push" ? micLabel(false) : "🎤 말하기 시작";
   if(wantListen) endListen(false);
   if(S.mode!=="hold"){ stopHoldTimer(); if(pending && !pending.committed) commitPending(); pending=null; }
   renderLive();
@@ -2771,11 +2781,19 @@ function closePanel(){ $("#panel").hidden=true; $("#ovl").hidden=true; }
 /* ========== 이벤트 바인딩 ========== */
 function bind(){
   var mic=$("#micBtn");
-  mic.onclick=toggleMic;
-  mic.addEventListener("pointerdown",pttDown);
+  if(TAP){
+    /* 태블릿: 탭으로 켜고 탭으로 끈다 */
+    mic.onclick=function(e){
+      if(S.mode!=="push") return toggleMic();
+      if(ptt) pttUp(); else pttDown(e);
+    };
+  } else {
+    mic.onclick=toggleMic;
+    mic.addEventListener("pointerdown",pttDown);
+    window.addEventListener("pointerup",pttUp);
+    window.addEventListener("pointercancel",pttUp);
+  }
   mic.addEventListener("contextmenu",function(e){e.preventDefault();});
-  window.addEventListener("pointerup",pttUp);
-  window.addEventListener("pointercancel",pttUp);
 
   var vrb=$("#recBtn");
   vrb.addEventListener("pointerdown",vrDown);
@@ -2789,11 +2807,11 @@ function bind(){
     if(e.key===" "||e.key==="Enter"){ e.preventDefault(); vrUp(); }
   });
   mic.addEventListener("keydown",function(e){
-    if(S.mode!=="push") return;
+    if(S.mode!=="push" || TAP) return;
     if(e.key===" "||e.key==="Enter"){ e.preventDefault(); if(!e.repeat) pttDown(); }
   });
   mic.addEventListener("keyup",function(e){
-    if(S.mode!=="push") return;
+    if(S.mode!=="push" || TAP) return;
     if(e.key===" "||e.key==="Enter"){ e.preventDefault(); pttUp(); }
   });
 
