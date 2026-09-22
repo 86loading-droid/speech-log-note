@@ -59,7 +59,17 @@ function verdict(){
   var v;
   if(!SR) v="❌ 이 브라우저에는 음성 인식 기능이 없습니다. Chrome 앱에서 여십시오.";
   else if(got) v="✅ 태블릿의 음성 인식은 정상입니다. 글자가 나왔습니다. 문제는 발화 기록 노트 쪽입니다 — 이 화면을 찍어 보내 주세요.";
-  else if(events.error) v="❌ 음성 인식 오류: "+events.error+" — 이 화면을 찍어 보내 주세요.";
+  else if(events.error){
+    var code=String(events.error).split(" ")[0];
+    var hint={"no-speech":"말소리를 듣지 못했습니다. 버튼을 누른 뒤 태블릿 가까이에서 또렷하게 말해 보세요. 그래도 같으면 🎙 마이크 소리 확인을 눌러 소리가 들어오는지 보세요.",
+      "audio-capture":"마이크를 쓰지 못했습니다. 다른 앱(녹음기·화상회의)이 마이크를 쓰고 있지 않은지 확인하세요.",
+      "not-allowed":"마이크 권한이 막혀 있습니다. Chrome 주소창 왼쪽 아이콘 → 권한 → 마이크 → 허용.",
+      "service-not-allowed":"태블릿의 음성 인식 서비스를 쓸 수 없습니다. 설정 → 애플리케이션 → Google 앱이 '사용 안 함'이 아닌지, 마이크 권한이 허용인지 확인하세요.",
+      "network":"인터넷 연결 문제로 음성 인식 서버에 닿지 못했습니다. 와이파이를 확인하세요.",
+      "language-not-supported":"한국어 음성 인식을 쓸 수 없습니다. Google 앱의 음성 설정에서 한국어를 추가하세요.",
+      "aborted":"인식이 중간에 끊겼습니다. 다시 눌러 보세요."}[code];
+    v="❌ 음성 인식 오류 "+code+" — "+(hint||"이 화면을 찍어 보내 주세요.");
+  }
   else if(events.start && !events.audiostart) v="⚠️ 인식은 시작됐지만 마이크 소리를 받지 못했습니다(audiostart 없음). 다른 앱이 마이크를 쓰는지, Google 앱의 마이크 권한을 확인하세요.";
   else if(events.audiostart && !events.soundstart) v="⚠️ 마이크는 열렸지만 소리가 감지되지 않았습니다. 더 가까이서, 더 크게 말해 보세요.";
   else if(events.speechstart && !got) v="⚠️ 말소리는 감지했지만 글자를 돌려받지 못했습니다. 인터넷 연결과 Google 앱(음성 인식)의 상태를 확인하세요.";
