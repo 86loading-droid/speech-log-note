@@ -653,6 +653,24 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
   </aside>
 
   <!-- ============ 낱말 고르기 패널 ============ -->
+  <aside class="panel" id="micHelp" hidden role="dialog" aria-modal="true" aria-label="마이크 허용 안내">
+    <div style="display:flex;align-items:center;gap:10px">
+      <h2 style="margin-right:auto">🎤 마이크 허용이 필요합니다</h2>
+      <button class="btn sm" id="micHelpClose">닫기</button>
+    </div>
+    <p class="note" id="micHelpWhy" style="font-size:.9rem"></p>
+    <p style="font-weight:700;margin:14px 0 6px">갤럭시 태블릿에서 세 곳을 한 번만 허용하면 다시 묻지 않습니다.</p>
+    <ol style="line-height:1.7;padding-left:20px;margin:0">
+      <li><b>Chrome 앱</b> — 태블릿 <b>설정 → 애플리케이션 → Chrome → 권한 → 마이크</b> → <b>「앱 사용 중에만 허용」</b>을 고릅니다. 「매번 확인」이나 「거부」로 두면 쓸 때마다 다시 묻거나 막힙니다.</li>
+      <li><b>Google 앱</b>(태블릿의 음성 인식을 맡는 앱) — <b>설정 → 애플리케이션 → Google → 권한 → 마이크</b> → <b>「앱 사용 중에만 허용」</b>. 목록에 「Google 음성 인식 및 합성」이 있으면 그 앱도 같은 방법으로 허용합니다.</li>
+      <li><b>이 사이트</b> — Chrome 주소창 왼쪽 아이콘을 누르고 <b>권한 → 마이크 → 허용</b>. 또는 <b>Chrome ⋮ → 설정 → 사이트 설정 → 마이크</b>에서 86loading-droid.github.io 를 허용합니다. 처음 묻는 창이 뜨면 「이번만 허용」이 아니라 <b>「사이트 방문 중 허용」</b>을 누릅니다.</li>
+    </ol>
+    <p class="note">세 곳을 바꾼 뒤 이 페이지를 새로 고치십시오. 마이크 허용이 안 되어 있는 동안 앱은 더 묻지 않도록 마이크 요청을 멈춰 둡니다.</p>
+    <div class="row-end" style="margin-top:12px">
+      <button class="btn primary" id="micHelpRetry">허용했습니다 — 다시 시도</button>
+    </div>
+  </aside>
+
   <aside class="panel" id="wordPanel" hidden role="dialog" aria-modal="true" aria-label="낱말 고르기">
     <div style="display:flex;align-items:center;gap:10px">
       <h2 style="margin-right:auto">✂️ 낱말 고르기 <span class="sub" id="wordWho"></span></h2>
@@ -1288,9 +1306,42 @@ function renderDiag(){
   var box=document.getElementById("diagBox"); if(!box) return;
   var env=["기기: "+(IS_ANDROID?"안드로이드":"안드로이드 아님")+" · Chrome "+(CHROME_VER||"?")+" · 음성 인식 "+(SR?"있음":"없음")+" · 녹음 "+(recSupported()?"가능":"불가"),
     "입력 방식: "+S.mode+" · 누르고 말하기: "+pttMode()+(S.pttNoRec?" (글자만 고정)":"")+" · 화면 폭 "+innerWidth+"×"+innerHeight,
-    "마지막 인식 오류: "+(lastSrErr||"없음"), "----"];
+    "마지막 인식 오류: "+(lastSrErr||"없음")+" · 사이트 마이크 권한: "+permState+(micBlocked?" · 마이크 요청 멈춤":""), "----"];
   box.textContent=env.concat(DIAG.slice().reverse()).join("\n");
 }
+/* ===== 마이크 권한: 거부되면 계속 묻지 않고 한 번 안내한다 ===== */
+var micBlocked=false, permState="?";
+function micDenied(src){
+  dlog("마이크 권한 없음: "+src);
+  if(micBlocked) return;
+  micBlocked=true;
+  stopAllInput("마이크 권한 없음");
+  setTimeout(function(){ setStatus("마이크 권한이 없습니다 — 안내를 따라 허용해 주세요",false); },80);
+  showMicHelp(src);
+}
+function showMicHelp(src){
+  var w=$("#micHelpWhy");
+  if(w) w.textContent = (src==="음성 인식"
+    ? "태블릿의 음성 인식이 마이크를 쓰지 못했습니다."
+    : src==="녹음" ? "목소리 녹음이 마이크를 쓰지 못했습니다."
+    : "마이크 사용이 허용되어 있지 않습니다.")+" (사이트 권한 상태: "+permState+")";
+  $("#micHelp").hidden=false; $("#ovl").hidden=false;
+}
+function hideMicHelp(){ $("#micHelp").hidden=true; if($("#panel").hidden && $("#wordPanel").hidden && $("#wmPanel").hidden) $("#ovl").hidden=true; }
+function watchPerm(){
+  if(!navigator.permissions || !navigator.permissions.query) return;
+  navigator.permissions.query({name:"microphone"}).then(function(st){
+    permState=st.state; dlog("사이트 마이크 권한: "+st.state);
+    if(st.state==="denied") micBlocked=true;
+    st.onchange=function(){
+      permState=st.state; dlog("사이트 마이크 권한 바뀜: "+st.state);
+      if(st.state==="granted"){ micBlocked=false; hideMicHelp(); setStatus("대기 중",false); }
+      if(st.state==="denied") micBlocked=true;
+    };
+  }).catch(function(){});
+}
+function isDenyErr(e){ return !!(e && (e.name==="NotAllowedError"||e.name==="SecurityError"||e.name==="PermissionDeniedError")); }
+
 /* 듣기·녹음을 모두 멈춘다 (패널을 열거나 글자를 입력하려 할 때, 화면을 떠날 때) */
 function stopAllInput(why){
   var any=ptt||vrHold||wantListen;
@@ -1367,7 +1418,9 @@ function startRec(label){
   };
   if(recIdleT){ clearTimeout(recIdleT); recIdleT=null; }
   openMic().then(function(){ go(); })
-    .catch(function(){
+    .catch(function(err){
+      dlog("녹음 시작 실패: "+(err&&err.name||err));
+      if(isDenyErr(err)) return micDenied("녹음");
       if(!recWarned){ recWarned=true; toast("녹음을 시작하지 못해 글자만 기록합니다."); }
     });
 }
@@ -2506,8 +2559,7 @@ function buildRec(){
   r.onerror=function(e){
     var c=e.error; lastSrErr=c+" ("+new Date().toLocaleTimeString("ko-KR")+")"; dlog("인식 오류: "+c);
     if(c==="not-allowed"||c==="service-not-allowed"){
-      wantListen=false; setStatus("마이크 권한이 거부되었습니다",false);
-      banner("마이크 사용이 차단되었습니다. Chrome 주소창의 자물쇠 아이콘에서 마이크를 허용한 뒤 새로 고침하세요. 이 페이지는 https:// 주소에서만 마이크를 쓸 수 있으며, 다른 화면 안에 끼워 넣어 보는(iframe) 경우에도 차단됩니다. 그때는 배포 주소로 직접 접속하세요.");
+      wantListen=false; micDenied("음성 인식");
     } else if(c==="audio-capture"){
       wantListen=false; setStatus("마이크 장치를 찾지 못했습니다",false);
       banner("연결된 마이크를 찾지 못했습니다. 갤럭시 태블릿의 내장 마이크가 다른 앱에 점유되어 있지 않은지 확인하세요.");
@@ -2549,6 +2601,7 @@ function start(){
 }
 function beginListen(){
   if(!SR){ toast("이 브라우저는 음성 인식을 지원하지 않습니다."); return false; }
+  if(micBlocked){ showMicHelp(permState==="denied"?"":"음성 인식"); return false; }
   if(editing){ toast("수정을 마친 뒤 녹음하세요."); return false; }
   stopAllAudio();
   clearClip();
@@ -2566,7 +2619,11 @@ function beginListen(){
     openMic().then(function(st){
       if(!wantListen || sess!==my) return;
       srTrack=st.getAudioTracks()[0]; start(); startRec();
-    }).catch(function(){ if(wantListen && sess===my){ my.mode="text"; start(); } });
+    }).catch(function(err){
+      dlog("마이크 열기 실패: "+(err&&err.name||err));
+      if(isDenyErr(err)) return micDenied("녹음");
+      if(wantListen && sess===my){ my.mode="text"; start(); }
+    });
   } else { start(); startRec(); }
   return true;
 }
@@ -2608,6 +2665,7 @@ function vrLabel(on){
 function vrDown(e){
   if(vrHold) return;
   if(e && e.preventDefault) e.preventDefault();
+  if(micBlocked){ showMicHelp(permState==="denied"?"":"녹음"); return; }
   if(!S.recAudio){ toast("설정에서 녹음을 켜 주세요."); return; }
   if(!recAllowed()){ toast(S.speaker+" 학생은 녹음이 꺼져 있습니다."); return; }
   if(!recSupported()){ toast("이 브라우저는 마이크를 쓸 수 없습니다."); return; }
@@ -2791,7 +2849,15 @@ function bind(){
     $(s).onclick=function(){ showTab(s.replace("#tab-","")); };
   });
   $("#setBtn").onclick=openPanel; $("#panelClose").onclick=closePanel;
-  $("#ovl").onclick=function(){ closePanel(); closeWord(); closeWM(); };
+  /* 바깥(어두운 부분)을 눌러 닫기: 누르기 시작한 곳도 바깥이어야 한다.
+     마이크 버튼을 누르는 도중 안내가 뜬 경우, 손을 떼는 순간의 클릭으로 창이 닫히지 않게 한다 */
+  var ovlDown=false;
+  $("#ovl").addEventListener("pointerdown",function(){ ovlDown=true; });
+  $("#ovl").onclick=function(){
+    if(!ovlDown) return;
+    ovlDown=false;
+    closePanel(); closeWord(); closeWM(); hideMicHelp();
+  };
   $("#themeBtn").onclick=function(){
     var order=["light","dark","hc-yellow","hc-black"];
     S.theme=order[(order.indexOf(S.theme)+1)%order.length]; applyTheme(); saveSet();
@@ -2904,6 +2970,8 @@ function bind(){
     if(navigator.clipboard) navigator.clipboard.writeText(t).then(function(){ toast("진단 정보를 복사했습니다."); },function(){ toast("복사하지 못했습니다. 화면을 찍어 보내 주십시오."); });
   };
   $("#diagWrap").addEventListener("toggle",renderDiag);
+  $("#micHelpClose").onclick=hideMicHelp;
+  $("#micHelpRetry").onclick=function(){ micBlocked=false; lastSrErr=""; hideMicHelp(); setStatus("대기 중",false); toast("누르고 말하기를 다시 눌러 보십시오."); };
   document.addEventListener("keydown",function(e){
     if(e.key==="Escape") closePanel();
     if(e.code==="Space" && e.target===document.body && S.mode!=="push"){ e.preventDefault(); toggleMic(); }
@@ -2929,7 +2997,7 @@ function init(){
   $("#clnToken").value=S.clnToken||"";
   renderWM(); renderCln();
   renderRecBtn(); renderPttChip();
-  clnQuietCheck();
+  clnQuietCheck(); watchPerm();
   purgeAudio(false);
   setInterval(function(){ purgeAudio(false); }, 60000);
   window.addEventListener("pagehide",releaseMic);
