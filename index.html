@@ -2041,6 +2041,34 @@ function clnStop(){
   clnOn=false; clnAbort=true; setClnBusy(false); showClnLive(false);
 }
 
+/* 코랩은 새로 켤 때마다 등록한 목소리를 잃는다. 서버가 알려 주는 부팅 번호가
+   등록할 때와 다르면 그 등록은 더는 쓸 수 없으므로 지운다. 지운 학생 이름을 돌려준다. */
+var clnBoot="";
+function clnPrune(boot){
+  clnBoot=boot||"";
+  if(!boot) return [];
+  var gone=[];
+  S.speakers.forEach(function(sp){
+    if(sp.cln && sp.cln.url && sp.cln.boot && sp.cln.boot!==boot){ gone.push(sp.name); sp.cln=null; }
+  });
+  if(gone.length){ saveSet(); renderCln(); renderLive(); }
+  return gone;
+}
+function clnGoneMsg(names){
+  return "코랩 서버가 새로 켜져 "+names.join(", ")+" 학생의 목소리 등록이 사라졌습니다. 목소리를 다시 녹음해 등록하십시오.";
+}
+/* 앱을 열 때 조용히 한 번 확인해 사라진 등록을 정리한다 */
+function clnQuietCheck(){
+  var base=clnBase();
+  if(!base || clnUrlMsg() || !clnTokOk()) return;
+  fetch(base+"/health",{headers:clnHead()}).then(function(r){ return r.json(); }).then(function(d){
+    if(!d || !d.ok) return;
+    clnFree=(d.backend!=="fal");
+    var gone=clnPrune(d.boot);
+    if(gone.length) toast(clnGoneMsg(gone));
+  }).catch(function(){});
+}
+
 /* 연결 확인 */
 function clnTest(){
   var base=clnBase(), el=$("#clnInfo");
@@ -2054,6 +2082,8 @@ function clnTest(){
       el.textContent="연결됨 · "+(d.provider||"?")+" · "+(clnFree?"무료 경로":"유료 경로")+
         " · 설정 "+(d.keyed?"완료":"안 됨")+" · 1회 최대 "+(d.maxChars||"?")+"자";
       if(!d.keyed) el.textContent+=" · 서버 설정이 끝나지 않아 읽기가 되지 않습니다.";
+      var gone=clnPrune(d.boot);
+      if(gone.length) el.textContent+=" · "+clnGoneMsg(gone);
     } else el.textContent="응답이 올바르지 않습니다.";
   }).catch(function(){ el.textContent="연결하지 못했습니다. 주소와 인터넷 상태를 확인하십시오."; });
 }
@@ -2068,7 +2098,7 @@ function clnRegister(sp, btn){
   btn.disabled=true; btn.textContent="등록 중…";
   var done=function(x){
     if(!x.ok || !x.d.voiceUrl){ toast("등록하지 못했습니다. "+((x.d&&x.d.error)||"")); return; }
-    sp.cln={ url:x.d.voiceUrl, at:Date.now() };
+    sp.cln={ url:x.d.voiceUrl, at:Date.now(), boot:(x.d.boot||clnBoot||"") };
     saveSet(); renderCln(); renderLive();
     toast(sp.name+" 목소리를 등록했습니다.");
   };
@@ -2151,7 +2181,15 @@ function clnToggle(){
   clnOn=true; clnAbort=false; setClnBusy(true,"⏳ 만드는 중…"); showClnLive(true);
   clnSpeak(vu, text, function(err, blob){
     if(clnAbort || !clnOn) return;
-    if(err){ clnStop(); toast("읽지 못했습니다. "+err.message); return; }
+    if(err){
+      clnStop();
+      if(/등록된 목소리가 없습니다/.test(err.message)){
+        var sp=spkOf(S.speaker);
+        if(sp && sp.cln){ sp.cln=null; saveSet(); renderCln(); renderLive(); }
+        toast(clnGoneMsg([S.speaker]));
+      } else toast("읽지 못했습니다. "+err.message);
+      return;
+    }
     setClnBusy(true,"⏹️ 멈추기");
     playBlob(blob, null, "__cln", function(){
       clnOn=false; setClnBusy(false); showClnLive(false);
@@ -2756,6 +2794,7 @@ function init(){
   $("#clnToken").value=S.clnToken||"";
   renderWM(); renderCln();
   renderRecBtn();
+  clnQuietCheck();
   purgeAudio(false);
   setInterval(function(){ purgeAudio(false); }, 60000);
   window.addEventListener("pagehide",releaseMic);
