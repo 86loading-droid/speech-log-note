@@ -587,7 +587,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     <div class="wkeep" style="margin-bottom:10px">보관 시간은 1시간으로 고정되어 있습니다. 녹음과 낱말 모델 모두 만든 때부터 1시간이 지나면 자동으로 지워지며, 이 값은 설정으로 늘리거나 줄일 수 없습니다. 음성은 이 기기 안에만 남고 서버로 보내지 않습니다.</div>
     <div class="chiprow" style="margin-top:10px">
       <button class="chip" id="recChip" aria-pressed="true">녹음 사용</button>
+      <button class="chip" id="pttRecChip" aria-pressed="true">누르고 말하기 때 목소리도 담기</button>
     </div>
+    <p class="note" id="pttRecNote"></p>
 
     <label class="f" for="recRateSel">녹음 품질</label>
     <select id="recRateSel">
@@ -718,7 +720,7 @@ var S = Object.assign({
   livePt:44, recPt:20, theme:"", lang:"ko-KR", autoSave:true, wakeLock:true,
   holdSec:30, fixes:[], mode:"push",
   recAudio:true, recBps:16000, drillRate:0.7, drillN:10,
-  clnUrl:"", clnToken:""
+  clnUrl:"", clnToken:"", pttNoRec:false
 }, store.get(K_SET,{}));
 /* 보관 시간은 1시간으로 고정한다. 설정으로 늘리거나 줄이지 않는다. */
 var KEEP_MIN = 60;
@@ -1258,6 +1260,48 @@ function recMime(){
   return "";
 }
 function recSupported(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder && recMime()); }
+/* ===== 안드로이드에서 음성 인식과 녹음이 마이크를 다투는 문제 =====
+   안드로이드는 두 앱이 마이크를 동시에 잡으면 한쪽에만 소리를 주고 다른 쪽에는 무음을 준다.
+   이 페이지의 녹음(getUserMedia)이 마이크를 잡으면 구글 음성 인식 서비스는 무음을 받아
+   글자가 나오지 않는다. 그래서
+   - Chrome 135 이상: 이 페이지가 잡은 마이크 소리를 음성 인식에 그대로 넘긴다(start(track)).
+   - 그보다 낮거나, 넘겨도 글자가 안 나오는 기기: 누르고 말하기는 글자만 받는다.
+   글자로 보여 주는 것이 1차 목표이므로 글자를 지키는 쪽으로 물러선다. */
+var UA=navigator.userAgent||"";
+var IS_ANDROID=/Android/i.test(UA);
+var CHROME_VER=+((UA.match(/Chrome\/(\d+)/)||[])[1]||0);
+var SR_TRACK_OK=CHROME_VER>=135;
+var srTrack=null, sess=null;
+function pttMode(){
+  if(!(S.recAudio && recSupported() && recAllowed())) return "text";
+  if(!IS_ANDROID) return "both";
+  if(S.pttNoRec || !SR_TRACK_OK) return "text";
+  return "shared";
+}
+function openMic(){
+  if(micStream && micStream.getAudioTracks().some(function(t){return t.readyState==="live";}))
+    return Promise.resolve(micStream);
+  return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,channelCount:1}})
+    .then(function(st){ micStream=st; return st; });
+}
+/* 녹음을 함께 켰는데 소리는 들어왔으나 글자가 하나도 오지 않으면, 이 기기는 글자만 받게 바꾼다 */
+function checkSess(ss){
+  if(!ss || ss.mode!=="shared" || ss.got) return;
+  if(Date.now()-ss.t0<1200 || ss.peak<25) return;
+  S.pttNoRec=true; saveSet(); renderPttChip();
+  srTrack=null; releaseMic();
+  banner("이 태블릿에서는 녹음과 글자 인식을 동시에 할 수 없어, 누르고 말하기는 이제 글자만 받습니다. 방금 말은 인식되지 않았으니 한 번 더 눌러 말해 주세요. 학생 목소리는 🔴 목소리 녹음 버튼으로 따로 담을 수 있습니다.");
+}
+function renderPttChip(){
+  var c=$("#pttRecChip"); if(!c) return;
+  c.setAttribute("aria-pressed", S.pttNoRec?"false":"true");
+  var n=$("#pttRecNote"); if(!n) return;
+  n.textContent = !IS_ANDROID ? "이 기기는 글자 인식과 녹음을 함께 합니다."
+    : !SR_TRACK_OK ? "이 태블릿의 Chrome("+CHROME_VER+")은 글자 인식과 녹음을 함께 할 수 없어 글자만 받습니다. Chrome 을 135 이상으로 업데이트하면 함께 쓸 수 있습니다."
+    : S.pttNoRec ? "지금은 누르고 말하기가 글자만 받습니다. 목소리는 🔴 목소리 녹음 버튼으로 담으십시오."
+    : "누르고 말하기가 글자와 목소리를 함께 받습니다. 글자가 나오지 않으면 자동으로 글자만 받도록 바뀝니다.";
+}
+
 function releaseMic(){
   stopMeter(); showRecLive(false);
   if(recIdleT){ clearTimeout(recIdleT); recIdleT=null; }
@@ -1265,7 +1309,8 @@ function releaseMic(){
 }
 function idleRelease(){
   if(recIdleT) clearTimeout(recIdleT);
-  recIdleT=setTimeout(releaseMic,180000);   /* 3분간 쓰지 않으면 마이크를 놓는다 */
+  /* 안드로이드는 이 페이지가 마이크를 쥐고 있으면 음성 인식이 무음을 받으므로 바로 놓는다 */
+  recIdleT=setTimeout(function(){ if(!wantListen && !vrHold && !mr) releaseMic(); }, IS_ANDROID?600:180000);
 }
 function startRec(label){
   if(!S.recAudio || !recSupported() || !recAllowed()) return;
@@ -1286,9 +1331,8 @@ function startRec(label){
       showRecLive(true,label||"녹음 중"); startMeter();
     }catch(e){ mr=null; }
   };
-  if(micStream && micStream.getAudioTracks().some(function(t){return t.readyState==="live";})) return go();
-  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,channelCount:1}})
-    .then(function(st){ micStream=st; go(); })
+  if(recIdleT){ clearTimeout(recIdleT); recIdleT=null; }
+  openMic().then(function(){ go(); })
     .catch(function(){
       if(!recWarned){ recWarned=true; toast("녹음을 시작하지 못해 글자만 기록합니다."); }
     });
@@ -1324,6 +1368,7 @@ function startMeter(){
       var peak=0;
       for(var i=0;i<meterBuf.length;i++){ var v=Math.abs(meterBuf[i]-128); if(v>peak) peak=v; }
       var pct=Math.max(3, Math.min(100, Math.round(peak/70*100)));
+      if(sess && pct>sess.peak) sess.peak=pct;
       if(fill) fill.style.width=pct+"%";
       meterRAF=requestAnimationFrame(loop);
     };
@@ -2399,6 +2444,7 @@ function buildRec(){
     var itm="";
     for(var i=e.resultIndex;i<e.results.length;i++){
       var res=e.results[i], txt=res[0].transcript;
+      if(sess && txt && txt.trim()) sess.got=true;
       if(res.isFinal){
         var t=txt.trim();
         if(t){
@@ -2429,7 +2475,10 @@ function buildRec(){
       banner("연결된 마이크를 찾지 못했습니다. 갤럭시 태블릿의 내장 마이크가 다른 앱에 점유되어 있지 않은지 확인하세요.");
     } else if(c==="network"){
       setStatus("네트워크 오류 — 재시도 중",true);
+    } else if(c && c!=="no-speech" && c!=="aborted"){
+      setStatus("음성 인식 오류: "+c,false);
     }
+    if(c==="audio-capture" && sess && sess.mode==="shared"){ sess.got=false; sess.peak=100; checkSess(sess); }
   };
   r.onend=function(){
     listening=false;
@@ -2442,7 +2491,11 @@ function buildRec(){
 }
 function start(){
   if(!SR) return;
-  try{ if(!rec) rec=buildRec(); rec.lang=S.lang; rec.start(); }
+  try{
+    if(!rec) rec=buildRec(); rec.lang=S.lang;
+    if(sess && sess.mode==="shared" && srTrack && srTrack.readyState==="live") rec.start(srTrack);
+    else rec.start();
+  }
   catch(e){ /* 이미 시작된 경우 무시 */ }
 }
 function beginListen(){
@@ -2451,12 +2504,25 @@ function beginListen(){
   stopAllAudio();
   clearClip();
   chainList=[]; showChainBar(false);
-  wantListen=true; restartAt=Date.now(); start(); requestWake();
-  startRec();
+  wantListen=true; restartAt=Date.now(); requestWake();
+  var mode=pttMode();
+  sess={mode:mode, got:false, peak:0, t0:Date.now()};
+  if(mode==="text"){
+    /* 이 페이지가 마이크를 쥐고 있으면 안드로이드 음성 인식이 무음을 받는다 */
+    if(IS_ANDROID && !mr) releaseMic();
+    start();
+  } else if(mode==="shared"){
+    var my=sess;
+    openMic().then(function(st){
+      if(!wantListen || sess!==my) return;
+      srTrack=st.getAudioTracks()[0]; start(); startRec();
+    }).catch(function(){ if(wantListen && sess===my){ my.mode="text"; start(); } });
+  } else { start(); startRec(); }
   return true;
 }
 function endListen(commit){
   wantListen=false; stopRec(); stopMeter(); showRecLive(false); try{rec&&rec.stop();}catch(e){}
+  var ss=sess; if(ss && ss.mode==="shared") setTimeout(function(){ checkSess(ss); }, 2500);
   setStatus("대기 중",false); releaseWake();
   if(commit && commitPending()){ renderLive(); toast("화면의 발화를 기록했습니다."); }
   renderLive();
@@ -2654,6 +2720,11 @@ function bind(){
     renderSpeakers(); renderLive();
   };
   $("#recRateSel").onchange=function(){ S.recBps=+this.value; saveSet(); };
+  $("#pttRecChip").onclick=function(){
+    if(IS_ANDROID && !SR_TRACK_OK){ toast("이 Chrome 은 글자 인식과 녹음을 함께 할 수 없습니다."); return; }
+    S.pttNoRec=!S.pttNoRec; saveSet(); renderPttChip();
+    toast(S.pttNoRec?"누르고 말하기는 이제 글자만 받습니다.":"누르고 말하기가 글자와 목소리를 함께 받습니다.");
+  };
   $("#wipeAudio").onclick=function(){
     if(!confirm("보관 중인 음성을 모두 삭제합니다. 글자 기록은 그대로 남습니다.")) return;
     stopAllAudio(); clearClip(); purgeAudio(true);
@@ -2793,7 +2864,7 @@ function init(){
   $("#clnUrl").value=S.clnUrl||"";
   $("#clnToken").value=S.clnToken||"";
   renderWM(); renderCln();
-  renderRecBtn();
+  renderRecBtn(); renderPttChip();
   clnQuietCheck();
   purgeAudio(false);
   setInterval(function(){ purgeAudio(false); }, 60000);
