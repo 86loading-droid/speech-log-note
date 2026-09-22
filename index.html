@@ -1293,7 +1293,9 @@ function recSupported(){ return !!(navigator.mediaDevices && navigator.mediaDevi
 var UA=navigator.userAgent||"";
 var IS_ANDROID=/Android/i.test(UA);
 var CHROME_VER=+((UA.match(/Chrome\/(\d+)/)||[])[1]||0);
-var SR_TRACK_OK=CHROME_VER>=135;
+/* 음성 인식에 마이크 소리를 넘기는 기능(start(track))은 안드로이드 Chrome 에서 지원되지 않는다
+   (caniuse: Chrome for Android 미지원). 그래서 안드로이드에서는 쓰지 않는다. */
+var SR_TRACK_OK=!IS_ANDROID && CHROME_VER>=135;
 /* 어떤 브라우저로 열었는지: 카카오톡·네이버 등 앱 안 브라우저(WebView)나 삼성 인터넷은
    마이크 허용을 저장하지 않거나 음성 인식을 제대로 지원하지 않는다 */
 var BROWSER = /KAKAOTALK/i.test(UA)?"카카오톡 안 브라우저"
@@ -1369,8 +1371,9 @@ function stopAllInput(why){
 function pttMode(){
   if(!(S.recAudio && recSupported() && recAllowed())) return "text";
   if(!IS_ANDROID) return "both";
-  if(S.pttNoRec || !SR_TRACK_OK) return "text";
-  return "shared";
+  /* 안드로이드: 글자 인식이 1차 목표. 이 페이지가 마이크를 쥐면 음성 인식이 무음을 받으므로
+     누르고 말하기 때는 마이크를 음성 인식에만 맡긴다. 목소리는 🔴 목소리 녹음 버튼으로 따로 담는다. */
+  return "text";
 }
 function openMic(){
   if(micStream && micStream.getAudioTracks().some(function(t){return t.readyState==="live";}))
@@ -1401,10 +1404,9 @@ function renderPttChip(){
   var c=$("#pttRecChip"); if(!c) return;
   c.setAttribute("aria-pressed", S.pttNoRec?"false":"true");
   var n=$("#pttRecNote"); if(!n) return;
+  if(IS_ANDROID){ c.setAttribute("aria-pressed","false"); c.disabled=true; }
   n.textContent = !IS_ANDROID ? "이 기기는 글자 인식과 녹음을 함께 합니다."
-    : !SR_TRACK_OK ? "이 태블릿의 Chrome("+CHROME_VER+")은 글자 인식과 녹음을 함께 할 수 없어 글자만 받습니다. Chrome 을 135 이상으로 업데이트하면 함께 쓸 수 있습니다."
-    : S.pttNoRec ? "지금은 누르고 말하기가 글자만 받습니다. 목소리는 🔴 목소리 녹음 버튼으로 담으십시오."
-    : "누르고 말하기가 글자와 목소리를 함께 받습니다. 글자가 나오지 않으면 자동으로 글자만 받도록 바뀝니다.";
+    : "태블릿(안드로이드)에서는 음성 인식과 녹음이 마이크를 함께 쓸 수 없어, 누르고 말하기는 글자만 받습니다. 학생 목소리는 🔴 목소리 녹음 버튼으로 담으십시오.";
 }
 
 function releaseMic(){
@@ -2551,7 +2553,9 @@ function setStatus(t,on){
 }
 function buildRec(){
   var r=new SR();
-  r.continuous=true; r.interimResults=true; r.lang=S.lang; r.maxAlternatives=1;
+  /* 안드로이드 Chrome 은 continuous 모드에서 글자를 돌려주지 않는 사례가 보고되어 있어 끈다.
+     한 문장이 끝나면 인식이 끝나고, 누르고 있는 동안에는 곧바로 다시 켜서 이어 받는다. */
+  r.continuous=!IS_ANDROID; r.interimResults=true; r.lang=S.lang; r.maxAlternatives=1;
   r.onstart=function(){ listening=true; dlog("인식 시작됨"); setStatus("듣는 중 — 말씀하세요",true); };
   r.onresult=function(e){
     var itm="";
@@ -2633,7 +2637,7 @@ function beginListen(){
   wantListen=true; restartAt=Date.now(); requestWake();
   var mode=pttMode();
   sess={mode:mode, got:false, peak:0, t0:Date.now()};
-  srRestarts=[]; dlog("듣기 시작 · 방식 "+mode);
+  srRestarts=[]; lastSrErr=""; dlog("듣기 시작 · 방식 "+mode);
   if(mode==="text"){
     /* 이 페이지가 마이크를 쥐고 있으면 안드로이드 음성 인식이 무음을 받는다 */
     if(IS_ANDROID && !mr) releaseMic();
@@ -2658,10 +2662,15 @@ function endListen(commit){
   /* 안드로이드에서 글자만 받는 방식이면, 왜 목소리가 안 담겼는지 한 번 알려 준다 */
   if(ss && ss.mode==="text" && IS_ANDROID && S.recAudio && recAllowed() && !textModeWarned){
     textModeWarned=true;
-    var why = S.pttNoRec ? "이 태블릿에서 글자와 녹음을 함께 하면 글자가 안 나와 글자만 받도록 바뀌어 있습니다(설정 → 누르고 말하기 때 목소리도 담기)"
-            : !SR_TRACK_OK ? "이 Chrome 버전("+CHROME_VER+")은 글자와 녹음을 함께 할 수 없습니다"
-            : "지금은 글자만 받습니다";
-    setTimeout(function(){ toast(why+". 목소리는 🔴 목소리 녹음 버튼으로 담으십시오."); },300);
+    setTimeout(function(){ toast("태블릿에서는 글자 인식을 지키기 위해 누르고 말하기 때 목소리를 담지 않습니다. 목소리는 🔴 목소리 녹음 버튼으로 담으십시오."); },2200);
+  }
+  /* 글자가 하나도 오지 않았으면 원인을 짐작할 수 있게 알려 준다 */
+  if(ss && !ss.aborted && Date.now()-ss.t0>900){
+    setTimeout(function(){
+      if(ss.got || sess!==ss) return;
+      var hint = lastSrErr ? "음성 인식 오류: "+lastSrErr : "글자가 인식되지 않았습니다. 버튼을 누르고 '삐' 소리나 '듣는 중' 표시가 나온 뒤 말해 주세요.";
+      setStatus(hint,false); dlog("글자 없이 끝남");
+    },1800);
   }
   setStatus("대기 중",false); releaseWake();
   if(commit && commitPending()){ renderLive(); toast("화면의 발화를 기록했습니다."); }
@@ -2864,7 +2873,7 @@ function bind(){
   };
   $("#recRateSel").onchange=function(){ S.recBps=+this.value; saveSet(); };
   $("#pttRecChip").onclick=function(){
-    if(IS_ANDROID && !SR_TRACK_OK){ toast("이 Chrome 은 글자 인식과 녹음을 함께 할 수 없습니다."); return; }
+    if(IS_ANDROID){ toast("태블릿에서는 누르고 말하기 때 목소리를 함께 담을 수 없습니다. 🔴 목소리 녹음 버튼을 쓰십시오."); return; }
     S.pttNoRec=!S.pttNoRec; saveSet(); renderPttChip();
     toast(S.pttNoRec?"누르고 말하기는 이제 글자만 받습니다.":"누르고 말하기가 글자와 목소리를 함께 받습니다.");
   };
@@ -3051,8 +3060,6 @@ function init(){
     bannerHtml("지금 <b>"+BROWSER+"</b>"+ro+" 열려 있습니다. 이 화면에서는 누를 때마다 마이크 허용을 다시 묻거나(허용·거부만 뜸), 글자 인식과 녹음이 되지 않습니다. "+
       "<a class='btn primary sm' style='margin-left:6px' href='"+chromeIntentUrl()+"'>Chrome으로 열기</a> "+
       "버튼이 안 되면 오른쪽 위 ⋮ 또는 공유 메뉴에서 「다른 브라우저로 열기 → Chrome」을 누르십시오.");
-  } else if(IS_ANDROID && !SR_TRACK_OK && CHROME_VER){
-    banner("이 태블릿의 Chrome 버전("+CHROME_VER+")이 오래되어 누르고 말하기 때 목소리를 함께 담지 못하고 글자만 받습니다. Play 스토어 → Chrome → 업데이트 후 다시 여십시오. 그동안 목소리는 🔴 목소리 녹음 버튼으로 담으십시오.");
   }
   if(!SR){
     banner("이 브라우저는 음성 인식(Web Speech API)을 지원하지 않습니다. 갤럭시 태블릿의 Chrome 에서 열어 주세요. 그동안에는 수정 버튼으로 키보드 입력만 사용할 수 있습니다.");
