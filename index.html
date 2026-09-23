@@ -329,7 +329,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 <div id="app" data-theme="light">
   <header class="topbar">
     <div class="topbar-in">
-      <div class="brand"><span class="dot"></span><span>발화 기록 노트 <small id="buildTag" style="opacity:.6">판 0922-11</small><small id="recorderTag">기록자 미설정</small></span></div>
+      <div class="brand"><span class="dot"></span><span>발화 기록 노트 <small id="buildTag" style="opacity:.6">판 0922-12</small><small id="recorderTag">기록자 미설정</small></span></div>
       <button class="btn sm" id="themeBtn" title="화면 테마 전환">🎨 테마</button>
       <button class="btn sm" id="setBtn">⚙️ 설정</button>
     </div>
@@ -1292,7 +1292,12 @@ function recSupported(){ return !!(navigator.mediaDevices && navigator.mediaDevi
    - 그보다 낮거나, 넘겨도 글자가 안 나오는 기기: 누르고 말하기는 글자만 받는다.
    글자로 보여 주는 것이 1차 목표이므로 글자를 지키는 쪽으로 물러선다. */
 var UA=navigator.userAgent||"";
-var IS_ANDROID=/Android/i.test(UA);
+/* 갤럭시 탭 Chrome 은 기본이 '데스크톱 사이트 보기'라서 UA 에 Android 가 빠지고 Linux 로 나온다.
+   터치 화면이 있는 Linux(크롬북 제외)는 안드로이드 태블릿으로 본다. */
+var IS_ANDROID=/Android/i.test(UA)
+  || !!(navigator.userAgentData && /android/i.test(navigator.userAgentData.platform||""))
+  || (/Linux/i.test(UA) && !/CrOS/i.test(UA) && (navigator.maxTouchPoints||0)>0);
+var DESKTOP_MODE = IS_ANDROID && !/Android/i.test(UA);
 var CHROME_VER=+((UA.match(/Chrome\/(\d+)/)||[])[1]||0);
 /* 음성 인식에 마이크 소리를 넘기는 기능(start(track))은 안드로이드 Chrome 에서 지원되지 않는다
    (caniuse: Chrome for Android 미지원). 그래서 안드로이드에서는 쓰지 않는다. */
@@ -1330,7 +1335,7 @@ function dlog(m){
 }
 function renderDiag(){
   var box=document.getElementById("diagBox"); if(!box) return;
-  var env=["기기: "+(IS_ANDROID?"안드로이드":"안드로이드 아님")+" · 브라우저 "+BROWSER+" · Chrome "+(CHROME_VER||"?")+" · 음성 인식 "+(SR?"있음":"없음")+" · 녹음 "+(recSupported()?"가능":"불가"),
+  var env=["기기: "+(IS_ANDROID?(DESKTOP_MODE?"안드로이드(데스크톱 사이트 보기)":"안드로이드"):"안드로이드 아님")+" · 브라우저 "+BROWSER+" · Chrome "+(CHROME_VER||"?")+" · 음성 인식 "+(SR?"있음":"없음")+" · 녹음 "+(recSupported()?"가능":"불가"),
     "입력 방식: "+S.mode+" · 누르고 말하기: "+pttMode()+(S.pttNoRec?" (글자만 고정)":"")+" · 화면 폭 "+innerWidth+"×"+innerHeight,
     "마지막 인식 오류: "+(lastSrErr||"없음")+" · 사이트 마이크 권한: "+permState+(micBlocked?" · 마이크 요청 멈춤":""),
     "이 화면에서 마이크 열기 "+gumCount+"번 · 음성 인식 시작 "+srCount+"번 · 지금 마이크 "+(micStream&&micStream.getAudioTracks().some(function(t){return t.readyState==="live";})?"열림":"닫힘"), "----"];
@@ -1380,6 +1385,7 @@ function stopAllInput(why){
 }
 function pttMode(){
   if(!(S.recAudio && recSupported() && recAllowed())) return "text";
+  if(S.pttNoRec) return "text";
   if(!IS_ANDROID) return "both";
   /* 안드로이드: 글자 인식이 1차 목표. 이 페이지가 마이크를 쥐면 음성 인식이 무음을 받으므로
      누르고 말하기 때는 마이크를 음성 인식에만 맡긴다. 목소리는 🔴 목소리 녹음 버튼으로 따로 담는다. */
@@ -1399,12 +1405,12 @@ function openMic(){
 /* 녹음을 함께 켰는데 소리는 들어왔으나 글자가 하나도 오지 않으면, 이 기기는 글자만 받게 바꾼다 */
 var sharedMiss=0;
 function checkSess(ss){
-  if(!ss || ss.mode!=="shared" || ss.aborted) return;
+  if(!ss || (ss.mode!=="shared" && ss.mode!=="both") || ss.aborted) return;
   if(ss.got){ sharedMiss=0; return; }
   if(Date.now()-ss.t0<1200 || ss.peak<25) return;
   /* 학생이 말하지 않았는데 주변 소리만 들어온 경우를 가려내려고 두 번 이어서 실패할 때만 바꾼다 */
   sharedMiss++; dlog("글자 없이 끝남 "+sharedMiss+"회");
-  if(sharedMiss<2 && !ss.hard){ toast("글자가 인식되지 않았습니다. 한 번 더 눌러 말해 주세요."); return; }
+  if(sharedMiss<2 && !ss.hard && ss.peak<60){ toast("글자가 인식되지 않았습니다. 한 번 더 눌러 말해 주세요."); return; }
   sharedMiss=0;
   S.pttNoRec=true; saveSet(); renderPttChip();
   srTrack=null; releaseMic();
@@ -2705,7 +2711,7 @@ function beginListen(){
 }
 function endListen(commit){
   wantListen=false; stopRec(); stopMeter(); showRecLive(false); try{rec&&rec.stop();}catch(e){}
-  var ss=sess; if(ss && ss.mode==="shared") setTimeout(function(){ checkSess(ss); }, 2500);
+  var ss=sess; if(ss && (ss.mode==="shared"||ss.mode==="both")) setTimeout(function(){ checkSess(ss); }, 2500);
   dlog("듣기 끝"+(ss?(" · 글자 "+(ss.got?"받음":"못 받음")+" · 소리 크기 "+ss.peak+"%"):""));
   /* 안드로이드에서 글자만 받는 방식이면, 왜 목소리가 안 담겼는지 한 번 알려 준다 */
   if(ss && ss.mode==="text" && IS_ANDROID && S.recAudio && recAllowed() && !textModeWarned){
