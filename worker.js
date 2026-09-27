@@ -28,6 +28,19 @@
 
 const FAL = "https://fal.run/fal-ai/qwen-3-tts";
 
+/* ── 코랩 주소 보관소 ────────────────────────────────────────
+   코랩이 켜지면 자기 주소를 여기에 올려 두고(POST /register),
+   앱은 그것을 읽어(GET /server) 스스로 연결합니다.
+   KV 이름 SRV 를 붙였을 때만 동작하며, 주소와 켜진 때 말고는 아무것도 담지 않습니다.
+   보관 기간은 6시간이고, 그 뒤에는 저절로 지워집니다. */
+const SRV_TTL = 21600;
+async function srvKey(env) {
+  const t = String(env.APP_TOKEN || "shared");
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+  const hex = [].map.call(new Uint8Array(buf), function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+  return "colab:" + hex.slice(0, 16);
+}
+
 function cors(env, extra) {
   return Object.assign({
     "Access-Control-Allow-Origin": env.ALLOW_ORIGIN || "*",
@@ -72,9 +85,45 @@ export default {
 
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(env) });
 
+    /* 코랩이 자기 주소를 올린다 */
+    if (path === "/register" && req.method === "POST") {
+      if (!authed(req, env)) return json(env, { error: "인증 실패: 공유 암호가 맞지 않습니다." }, 401);
+      if (!env.SRV) return json(env, { error: "이 중계에는 주소 보관소(KV 이름 SRV)가 붙어 있지 않습니다." }, 501);
+      let body;
+      try { body = await req.json(); } catch (e) { return json(env, { error: "요청 형식이 올바르지 않습니다." }, 400); }
+      const u = String(body.url || "").trim().replace(/\/+$/, "");
+      if (!/^https:\/\/[^\s]+$/.test(u)) return json(env, { error: "주소가 올바르지 않습니다." }, 400);
+      const rec = { url: u, boot: String(body.boot || ""), at: Date.now() };
+      await env.SRV.put(await srvKey(env), JSON.stringify(rec), { expirationTtl: SRV_TTL });
+      return json(env, { ok: true, kept: SRV_TTL });
+    }
+
+    /* 앱이 지금 켜진 코랩 주소를 묻는다 */
+    if (path === "/server") {
+      if (!authed(req, env)) return json(env, { error: "인증 실패: 공유 암호가 맞지 않습니다." }, 401);
+      if (!env.SRV) return json(env, { ok: true, url: "", registry: false });
+      const raw = await env.SRV.get(await srvKey(env));
+      if (!raw) return json(env, { ok: true, url: "", registry: true });
+      let rec = {};
+      try { rec = JSON.parse(raw); } catch (e) {}
+      return json(env, {
+        ok: true, registry: true,
+        url: rec.url || "", boot: rec.boot || "",
+        at: rec.at || 0, ageSec: rec.at ? Math.round((Date.now() - rec.at) / 1000) : 0
+      });
+    }
+
+    /* 코랩이 꺼질 때 주소를 지운다 */
+    if (path === "/unregister" && req.method === "POST") {
+      if (!authed(req, env)) return json(env, { error: "인증 실패: 공유 암호가 맞지 않습니다." }, 401);
+      if (env.SRV) await env.SRV.delete(await srvKey(env));
+      return json(env, { ok: true });
+    }
+
     if (path === "/health") {
       return json(env, {
         ok: true,
+        registry: !!env.SRV,
         provider: be === "fal" ? "fal/qwen3-tts" : "hf/xtts-v2",
         backend: be,
         keyed: be === "fal" ? !!env.FAL_KEY : !!spaceHost(env),

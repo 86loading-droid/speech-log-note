@@ -2,7 +2,13 @@ name = "speech-log-voice"
 main = "worker.js"
 compatibility_date = "2026-01-01"
 
-# 저장소(KV·R2·D1)를 쓰지 않습니다. 음성과 글은 거쳐 갈 뿐 남지 않습니다.
+# 음성과 글은 거쳐 갈 뿐 남지 않습니다.
+# 아래 KV 한 칸만 씁니다. 코랩이 켜졌을 때 그 주소를 6시간 동안 보관해,
+# 앱이 QR 없이 스스로 연결하게 하는 용도입니다. 음성·글은 담지 않습니다.
+#   npx wrangler kv namespace create SRV      → 나온 id 를 아래에 적으십시오
+# [[kv_namespaces]]
+# binding = "SRV"
+# id = "여기에 붙여넣기"
 
 [vars]
 ALLOW_ORIGIN = "https://86loading-droid.github.io"

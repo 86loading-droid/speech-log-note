@@ -331,7 +331,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 <div id="app" data-theme="light">
   <header class="topbar">
     <div class="topbar-in">
-      <div class="brand"><span class="dot"></span><span>발화 기록 노트 <small id="buildTag" style="opacity:.6">판 0927-13</small><small id="recorderTag">기록자 미설정</small></span></div>
+      <div class="brand"><span class="dot"></span><span>발화 기록 노트 <small id="buildTag" style="opacity:.6">판 0927-14</small><small id="recorderTag">기록자 미설정</small></span></div>
       <button class="btn sm" id="themeBtn" title="화면 테마 전환">🎨 테마</button>
       <button class="btn sm" id="setBtn">⚙️ 설정</button>
     </div>
@@ -619,6 +619,16 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     <div class="wkeep" style="border-color:var(--ok);color:var(--ok)">무료 경로 — 구글 코랩 무료 GPU 에서 XTTS-v2 를 돌리는 방식입니다. 카드 등록 없이 0원입니다. 저장소의 코랩 노트북을 열어 칸 두 개를 실행하면 주소와 공유 암호가 나옵니다. 코랩은 한 번에 최대 12시간이고 손을 떼면 90분쯤 뒤 끊기며, 다시 실행하면 주소가 바뀌므로 앱에 새 주소를 넣으셔야 합니다.</div>
     <div class="wkeep" style="border-color:var(--accent);color:var(--accent)">유료 경로 — fal.ai 를 쓰면 한도 없이 즉시 응답합니다. 등록은 1분에 약 0.0008달러, 읽기는 1000자에 약 0.07달러입니다. 20자 문장 한 번이 약 2원이고 구독이 아니라 쓴 만큼만 청구됩니다.</div>
 
+    <h2 style="font-size:.95rem;margin-top:16px">목소리 서버 자동 연결</h2>
+    <p class="note">중계 주소와 공유 암호를 한 번만 넣어 두면, 코랩을 켤 때마다 앱이 스스로 새 주소를 찾아 연결합니다. 수업 때는 아래 「코랩 열기」를 눌러 노트북에서 ▶ 를 한 번만 누르시면 됩니다.</p>
+    <label class="f" for="relayUrl">중계 주소 <span class="sub">Cloudflare Worker 주소</span></label>
+    <input type="url" id="relayUrl" placeholder="예: https://speech-log-voice.&lt;계정&gt;.workers.dev" autocomplete="off">
+    <div class="row-end" style="margin-top:10px">
+      <button class="btn sm" id="colabBtn">🎙 코랩 열기</button>
+      <button class="btn sm" id="relayFind">지금 찾기</button>
+    </div>
+    <p class="note" id="relayInfo">중계 주소를 넣으면 코랩을 켠 뒤 저절로 연결됩니다.</p>
+
     <p class="note">코랩을 실행하면 나오는 링크를 누르거나 QR 코드를 태블릿으로 찍으면, 아래 두 칸이 저절로 채워지고 연결까지 끝납니다. 손으로 넣으실 때만 아래에 적으십시오.</p>
     <label class="f" for="clnUrl">복제 서버 주소 <span class="sub">코랩이면 trycloudflare.com 주소</span></label>
     <input type="url" id="clnUrl" placeholder="예: https://speech-log-voice.&lt;계정&gt;.workers.dev" autocomplete="off">
@@ -748,7 +758,7 @@ var S = Object.assign({
   livePt:44, recPt:20, theme:"", lang:"ko-KR", autoSave:true, wakeLock:true,
   holdSec:30, fixes:[], mode:"push",
   recAudio:true, recBps:16000, drillRate:0.7, drillN:10,
-  clnUrl:"", clnToken:"", pttNoRec:false
+  clnUrl:"", clnToken:"", relayUrl:"", pttNoRec:false
 }, store.get(K_SET,{}));
 /* 보관 시간은 1시간으로 고정한다. 설정으로 늘리거나 줄이지 않는다. */
 var KEEP_MIN = 60;
@@ -2277,6 +2287,51 @@ function applyClnLink(){
   },300);
   return true;
 }
+/* ── 목소리 서버 자동 찾기 ───────────────────────────────
+   코랩이 켜지면 자기 주소를 중계(Worker)에 올려 둔다.
+   앱은 중계에 물어 새 주소를 받아 스스로 연결한다. QR 을 찍지 않아도 된다. */
+var COLAB_URL="https://colab.research.google.com/github/86loading-droid/speech-log-note/blob/main/speech_log_voice_colab.ipynb";
+var relayTimer=null, relayLast="";
+function relayBase(){ return String(S.relayUrl||"").trim().replace(/\/+$/,""); }
+function relaySay(msg){ var el=$("#relayInfo"); if(el) el.textContent=msg; }
+function relayFind(loud){
+  var base=relayBase();
+  if(!base){ if(loud) relaySay("중계 주소를 먼저 넣으십시오."); return; }
+  if(!clnTokOk()){ if(loud) relaySay(CLN_TOK_MSG); return; }
+  if(loud) relaySay("찾는 중…");
+  fetch(base+"/server",{headers:clnHead()}).then(function(r){ return r.json(); }).then(function(d){
+    if(!d || d.error){ if(loud) relaySay("중계가 거절했습니다. "+((d&&d.error)||"")); return; }
+    if(!d.url){
+      relayLast="";
+      relaySay("목소리 서버가 꺼져 있습니다. 「코랩 열기」를 눌러 노트북에서 ▶ 를 한 번 누르십시오.");
+      return;
+    }
+    var mins=Math.round((d.ageSec||0)/60);
+    if(d.url!==S.clnUrl){
+      S.clnUrl=d.url; saveSet();
+      var u=$("#clnUrl"); if(u) u.value=d.url;
+      clnQuietCheck(); renderCln(); renderLive();
+      if(relayLast) toast("목소리 서버가 새로 켜져 자동으로 다시 연결했습니다.");
+      else toast("목소리 서버를 찾아 연결했습니다.");
+    }
+    relayLast=d.url;
+    relaySay("연결됨 · 서버가 켜진 지 "+(mins<1?"1분 안":mins+"분")+" · 주소는 저절로 채워졌습니다.");
+  }).catch(function(){ if(loud) relaySay("중계에 닿지 못했습니다. 주소와 인터넷 상태를 확인하십시오."); });
+}
+function relayStart(){
+  if(relayTimer) clearInterval(relayTimer);
+  if(!relayBase()) return;
+  relayFind(false);
+  /* 수업 중에 코랩이 끊겼다가 다시 켜져도 앱이 알아서 따라간다 */
+  relayTimer=setInterval(function(){ if(document.visibilityState==="visible") relayFind(false); }, 60000);
+}
+function openColab(){
+  var w=window.open(COLAB_URL,"_blank","noopener");
+  if(!w) { toast("새 창이 막혔습니다. 브라우저에서 팝업을 허용해 주십시오."); return; }
+  relaySay("코랩을 열었습니다. 노트북에서 ▶ 를 누르고 1~2분 기다리면 앱이 스스로 연결합니다.");
+  var tries=0;
+  var t=setInterval(function(){ tries++; relayFind(false); if(tries>20 || relayLast) clearInterval(t); }, 15000);
+}
 /* 앱을 열 때 조용히 한 번 확인해 사라진 등록을 정리한다 */
 function clnQuietCheck(){
   var base=clnBase();
@@ -2925,6 +2980,12 @@ function bind(){
   $("#drillBtn").onclick=slowToggle;
   $("#chainBtn").onclick=chainToggle;
   $("#clnBtn").onclick=clnToggle;
+  $("#relayUrl").onchange=function(){
+    S.relayUrl=this.value.trim(); saveSet();
+    if(S.relayUrl) relayStart(); else { if(relayTimer) clearInterval(relayTimer); relaySay("중계 주소를 넣으면 코랩을 켠 뒤 저절로 연결됩니다."); }
+  };
+  $("#colabBtn").onclick=openColab;
+  $("#relayFind").onclick=function(){ relayFind(true); };
   $("#clnUrl").onchange=function(){
     S.clnUrl=this.value.trim(); saveSet(); renderLive();
     $("#clnInfo").textContent = S.clnUrl ? "저장했습니다. 연결 확인을 눌러 보십시오."
@@ -3160,11 +3221,13 @@ function init(){
   }
   $("#recChip").setAttribute("aria-pressed",S.recAudio?"true":"false");
   $("#recRateSel").value=String(S.recBps);
+  $("#relayUrl").value=S.relayUrl||"";
   $("#clnUrl").value=S.clnUrl||"";
   $("#clnToken").value=S.clnToken||"";
   renderWM(); renderCln();
   renderRecBtn(); renderPttChip();
   if(!applyClnLink()) clnQuietCheck();
+  relayStart();
   /* 앱이 이미 열려 있는 상태에서 링크를 눌러도 연결되게 한다 */
   window.addEventListener("hashchange",function(){ applyClnLink(); });
   watchPerm();
