@@ -90,6 +90,8 @@ html,body{margin:0}
 .stagebar .chip{padding:8px 14px;min-height:44px;font-size:.95rem}
 @media(max-width:700px){.stagebar .chiprow{max-height:100px;overflow-y:auto}}
 .stagebar .btn.sm{min-height:44px;min-width:44px}
+#recToggle[aria-pressed="true"]{border-color:#ef4444;color:#ef4444}
+#recToggle[aria-pressed="false"]{opacity:.55}
 .stagemain{display:flex;flex-direction:column;gap:8px;min-height:0;flex:1 1 auto}
 .stageside{display:flex;flex-direction:column;gap:8px}
 
@@ -329,7 +331,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 <div id="app" data-theme="light">
   <header class="topbar">
     <div class="topbar-in">
-      <div class="brand"><span class="dot"></span><span>발화 기록 노트 <small id="buildTag" style="opacity:.6">판 0922-12</small><small id="recorderTag">기록자 미설정</small></span></div>
+      <div class="brand"><span class="dot"></span><span>발화 기록 노트 <small id="buildTag" style="opacity:.6">판 0927-13</small><small id="recorderTag">기록자 미설정</small></span></div>
       <button class="btn sm" id="themeBtn" title="화면 테마 전환">🎨 테마</button>
       <button class="btn sm" id="setBtn">⚙️ 설정</button>
     </div>
@@ -349,6 +351,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
       <div class="stage" id="stage">
         <div class="stagebar">
           <div class="chiprow" id="speakerChips"></div>
+          <button class="btn sm" id="recToggle" aria-pressed="true" title="목소리 녹음 기능을 켜고 끕니다">🔴 녹음 켬</button>
           <button class="btn sm" id="fsDown" aria-label="글자 작게">A−</button>
           <span class="fsval" id="fsVal">44pt</span>
           <button class="btn sm" id="fsUp" aria-label="글자 크게">A+</button>
@@ -616,6 +619,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
     <div class="wkeep" style="border-color:var(--ok);color:var(--ok)">무료 경로 — 구글 코랩 무료 GPU 에서 XTTS-v2 를 돌리는 방식입니다. 카드 등록 없이 0원입니다. 저장소의 코랩 노트북을 열어 칸 두 개를 실행하면 주소와 공유 암호가 나옵니다. 코랩은 한 번에 최대 12시간이고 손을 떼면 90분쯤 뒤 끊기며, 다시 실행하면 주소가 바뀌므로 앱에 새 주소를 넣으셔야 합니다.</div>
     <div class="wkeep" style="border-color:var(--accent);color:var(--accent)">유료 경로 — fal.ai 를 쓰면 한도 없이 즉시 응답합니다. 등록은 1분에 약 0.0008달러, 읽기는 1000자에 약 0.07달러입니다. 20자 문장 한 번이 약 2원이고 구독이 아니라 쓴 만큼만 청구됩니다.</div>
 
+    <p class="note">코랩을 실행하면 나오는 링크를 누르거나 QR 코드를 태블릿으로 찍으면, 아래 두 칸이 저절로 채워지고 연결까지 끝납니다. 손으로 넣으실 때만 아래에 적으십시오.</p>
     <label class="f" for="clnUrl">복제 서버 주소 <span class="sub">코랩이면 trycloudflare.com 주소</span></label>
     <input type="url" id="clnUrl" placeholder="예: https://speech-log-voice.&lt;계정&gt;.workers.dev" autocomplete="off">
 
@@ -2233,6 +2237,46 @@ function clnPrune(boot){
 function clnGoneMsg(names){
   return "코랩 서버가 새로 켜져 "+names.join(", ")+" 학생의 목소리 등록이 사라졌습니다. 목소리를 다시 녹음해 등록하십시오.";
 }
+/* 코랩이 만든 링크·QR 로 복제 서버를 자동 연결한다.
+   주소 뒤에 #cln=<base64> 가 붙어 오면 주소와 공유 암호를 그대로 설정에 넣는다. */
+function readClnLink(){
+  var m=(location.hash||"").match(/[#&]cln=([A-Za-z0-9_\-=]+)/) || (location.search||"").match(/[?&]cln=([A-Za-z0-9_\-=]+)/);
+  if(!m) return null;
+  try{
+    var b=m[1].replace(/-/g,"+").replace(/_/g,"/"); while(b.length%4) b+="=";
+    var txt=decodeURIComponent(Array.prototype.map.call(atob(b),function(c){
+      return "%"+("00"+c.charCodeAt(0).toString(16)).slice(-2); }).join(""));
+    var d=JSON.parse(txt);
+    if(!d || !d.u) return null;
+    return {url:String(d.u).trim().replace(/\/+$/,""), token:String(d.t||"")};
+  }catch(e){ return null; }
+}
+function clearClnLink(){
+  try{
+    var q=location.search.replace(/([?&])cln=[^&]*/,"$1").replace(/[?&]$/,"");
+    var h=(location.hash||"").replace(/([#&])cln=[^&]*/,"$1").replace(/[#&]$/,"");
+    history.replaceState(null,"",location.pathname+q+(h&&h!=="#"?h:""));
+  }catch(e){}
+}
+function applyClnLink(){
+  var d=readClnLink(); if(!d) return false;
+  S.clnUrl=d.url; if(d.token) S.clnToken=d.token; saveSet();
+  var u=$("#clnUrl"); if(u) u.value=S.clnUrl;
+  var t=$("#clnToken"); if(t) t.value=S.clnToken||"";
+  clearClnLink();
+  setTimeout(function(){
+    fetch(clnBase()+"/health",{headers:clnHead()}).then(function(r){ return r.json(); }).then(function(d2){
+      if(d2 && d2.ok){
+        clnFree=(d2.backend!=="fal");
+        clnPrune(d2.boot); renderCln(); renderLive();
+        toast("목소리 복제 서버에 연결했습니다. 이제 학생 목소리로 읽어 줄 수 있습니다.");
+      } else toast("복제 서버 주소는 받았지만 응답이 올바르지 않습니다. 코랩이 켜져 있는지 확인하십시오.");
+    }).catch(function(){
+      toast("복제 서버 주소를 받았지만 연결되지 않았습니다. 코랩이 켜져 있는지 확인하십시오.");
+    });
+  },300);
+  return true;
+}
 /* 앱을 열 때 조용히 한 번 확인해 사라진 등록을 정리한다 */
 function clnQuietCheck(){
   var base=clnBase();
@@ -2512,7 +2556,7 @@ function renderLive(){
   b.scrollTop=b.scrollHeight;
   renderHoldPill();
   $("#saveBtn").disabled = !((pending && !pending.committed) || finalBuf.trim() || interimBuf.trim());
-  renderRecBtn();
+  renderRecBtn(); renderRecToggle();
   var db=$("#drillBtn");
   if(db && !db.classList.contains("playing")){
     db.disabled=!recBlob;
@@ -2779,6 +2823,23 @@ function vrUp(){
   stopMeter(); showRecLive(false); idleRelease();
   renderLive();
 }
+/* 기록 화면의 녹음 켜기·끄기 스위치 */
+function renderRecToggle(){
+  var b=$("#recToggle"); if(!b) return;
+  if(!recSupported()){ b.disabled=true; b.textContent="🔴 녹음 미지원"; b.setAttribute("aria-pressed","false"); b.title="이 브라우저는 녹음을 지원하지 않습니다"; return; }
+  b.disabled=false;
+  b.textContent = S.recAudio ? "🔴 녹음 켬" : "🔴 녹음 끔";
+  b.classList.toggle("on", !!S.recAudio);
+  b.setAttribute("aria-pressed", S.recAudio?"true":"false");
+  b.title = S.recAudio ? "지금은 목소리를 담습니다. 누르면 끕니다" : "지금은 목소리를 담지 않습니다. 누르면 켭니다";
+}
+function setRecAudio(on){
+  if(on && !recSupported()){ toast("이 브라우저는 녹음을 지원하지 않습니다."); return; }
+  S.recAudio=!!on; saveSet();
+  if(!S.recAudio){ try{ releaseMic(); }catch(e){} clearClip(); }
+  var c=$("#recChip"); if(c) c.setAttribute("aria-pressed",S.recAudio?"true":"false");
+  renderRecToggle(); renderSpeakers(); renderPttChip(); renderLive();
+}
 function renderRecBtn(){
   var b=$("#recBtn"); if(!b) return;
   var ok=S.recAudio && recAllowed() && recSupported();
@@ -2927,11 +2988,13 @@ function bind(){
   $("#modeSel").onchange=function(){ S.mode=this.value; saveSet(); applyMode(); };
   $("#drillRateSel").onchange=function(){ S.drillRate=+this.value; saveSet(); renderLive(); };
   $("#drillNSel").onchange=function(){ S.drillN=+this.value; saveSet(); renderLive(); };
+  $("#recToggle").onclick=function(){
+    var on=!S.recAudio; setRecAudio(on);
+    toast(on?"이 기기에서 목소리 녹음을 켰습니다.":"이 기기에서 목소리 녹음을 껐습니다. 글자 인식만 합니다.");
+  };
   $("#recChip").onclick=function(){
     if(!recSupported()){ toast("이 브라우저는 녹음을 지원하지 않습니다."); return; }
-    S.recAudio=!S.recAudio; this.setAttribute("aria-pressed",S.recAudio?"true":"false"); saveSet();
-    if(!S.recAudio){ releaseMic(); clearClip(); }
-    renderSpeakers(); renderLive();
+    setRecAudio(!S.recAudio);
   };
   $("#recRateSel").onchange=function(){ S.recBps=+this.value; saveSet(); };
   $("#pttRecChip").onclick=function(){
@@ -3101,7 +3164,10 @@ function init(){
   $("#clnToken").value=S.clnToken||"";
   renderWM(); renderCln();
   renderRecBtn(); renderPttChip();
-  clnQuietCheck(); watchPerm();
+  if(!applyClnLink()) clnQuietCheck();
+  /* 앱이 이미 열려 있는 상태에서 링크를 눌러도 연결되게 한다 */
+  window.addEventListener("hashchange",function(){ applyClnLink(); });
+  watchPerm();
   purgeAudio(false);
   setInterval(function(){ purgeAudio(false); }, 60000);
   window.addEventListener("pagehide",releaseMic);
